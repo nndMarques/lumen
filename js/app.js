@@ -53,6 +53,21 @@ function render(html) {
   window.scrollTo(0, 0);
 }
 
+// Trava a rolagem da página por trás de um painel aberto (só no celular).
+let rolagemTravada = null;
+function travarRolagem() {
+  if (rolagemTravada !== null || window.matchMedia('(min-width: 900px)').matches) return;
+  rolagemTravada = window.scrollY;
+  Object.assign(document.body.style, { position: 'fixed', top: `-${rolagemTravada}px`, left: '0', right: '0' });
+}
+function liberarRolagem() {
+  if (rolagemTravada === null) return;
+  const y = rolagemTravada;
+  rolagemTravada = null;
+  Object.assign(document.body.style, { position: '', top: '', left: '', right: '' });
+  window.scrollTo(0, y);
+}
+
 let toastTimer;
 function toast(msg) {
   let t = document.querySelector('.toast');
@@ -432,6 +447,7 @@ function telaAprender() {
     $painel.querySelector('[data-passo="-1"]').disabled = i === 0;
     $painel.querySelector('[data-passo="1"]').disabled = i === sequencia.length - 1;
     $painel.classList.add('open', 'tem');
+    travarRolagem();
     $painel.classList.remove('swap'); void $painel.offsetWidth; $painel.classList.add('swap');
     vibrar(6);
   }
@@ -444,6 +460,7 @@ function telaAprender() {
   });
   $painel.querySelector('.cp-x').addEventListener('click', () => {
     $painel.classList.remove('open');
+    liberarRolagem();
     $svg.querySelectorAll('.conta.sel').forEach((g) => g.classList.remove('sel'));
   });
   $painel.querySelectorAll('[data-passo]').forEach((b) => b.addEventListener('click', () => {
@@ -781,6 +798,7 @@ function moverIndicador() {
 }
 
 function rota() {
+  liberarRolagem();
   const partes = (location.hash.replace(/^#\/?/, '') || '').split('/');
   const [a, b, c] = partes;
   let tab = 'inicio';
