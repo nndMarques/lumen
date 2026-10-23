@@ -357,6 +357,41 @@ p { margin: 0 0 12px; }
 .opcoes-in .btn { opacity: 0; transform: translateY(-6px); transition: opacity 0.3s, transform 0.35s var(--ease), background-color 0.25s, color 0.25s; }
 .misterio-op.aberto .opcoes-in .btn { opacity: 1; transform: none; }
 .misterio-op.aberto .opcoes-in .btn + .btn { transition-delay: 0.06s; }
+.misterio-op.rezado [data-marcar], .misterio-op:not(.rezado) [data-desmarcar] { display: none; }
+
+/* Constância */
+.c-top { display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; }
+.c-total { display: flex; align-items: baseline; gap: 12px; }
+.c-total .big { font-family: var(--serif); font-size: 76px; line-height: 0.85; color: var(--accent); font-variant-numeric: tabular-nums; }
+.c-total .lbl, .c-seq .lbl { font-size: 13px; color: var(--muted); }
+.c-seq { text-align: right; display: flex; flex-direction: column; align-items: flex-end; }
+.c-seq .big2 { font-family: var(--serif); font-size: 36px; line-height: 1; }
+.constancia.pulso .c-total .big { animation: pulso 0.6s var(--ease); }
+@keyframes pulso { 0% { transform: scale(1); } 35% { transform: scale(1.12); } 100% { transform: scale(1); } }
+
+.semana { list-style: none; margin: 22px 0 0; padding: 0; display: grid; grid-template-columns: repeat(7, 1fr); }
+.semana li { display: flex; flex-direction: column; align-items: center; gap: 7px; }
+.semana i { width: 18px; height: 18px; border-radius: 50%; border: 1.5px solid var(--muted); transition: background-color 0.4s, border-color 0.4s, transform 0.4s var(--ease); }
+.semana .feito i { background: var(--accent); border-color: var(--accent); }
+.semana .hoje i { outline: 1px solid var(--accent); outline-offset: 3px; }
+.semana .hoje.feito i { animation: conta-feita 0.6s var(--ease); }
+@keyframes conta-feita { 0% { transform: scale(0.6); } 60% { transform: scale(1.2); } 100% { transform: scale(1); } }
+.semana span { font-size: 11px; font-weight: 600; letter-spacing: 0.1em; color: var(--muted); }
+.semana .hoje span { color: var(--ink); }
+
+.proximo { margin-top: 24px; }
+.proximo .eyebrow { margin-bottom: 4px; }
+.pm-t { font-family: var(--serif); font-size: 24px; line-height: 1.15; margin: 0 0 10px; }
+.proximo .progress { margin-top: 0; }
+
+.marcos { list-style: none; margin: 18px 0 0; padding: 0; display: grid; grid-template-columns: repeat(8, 1fr); gap: 6px; }
+.marcos li { aspect-ratio: 1; display: grid; place-items: center; border: 1px solid var(--line); border-radius: 2px; font-family: var(--serif); font-size: 17px; color: var(--muted); transition: background-color 0.4s, color 0.4s, border-color 0.4s; }
+.marcos li.ganho { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+.marcos li.novo { animation: marco 0.9s var(--ease); }
+@keyframes marco { 0% { transform: scale(0.5) rotate(-8deg); } 55% { transform: scale(1.18) rotate(3deg); } 100% { transform: none; } }
+
+#contricao.swap { opacity: 1; transform: none; animation: swap 0.42s var(--ease); }
+
 .feito-hoje { display: flex; align-items: center; gap: 8px; margin-top: 12px; font-size: 14px; color: var(--muted); }
 .feito-hoje svg { width: 16px; height: 16px; fill: none; stroke: var(--accent); stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; }
 

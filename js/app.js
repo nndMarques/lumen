@@ -209,7 +209,6 @@ function telaExame(id) {
       </div>` : ''}
     <p ${rc('muted small')} style="margin-top:18px">Peça luz ao Espírito Santo antes de começar. Responda com calma e sinceridade.</p>
     ${secoes}
-    <div style="margin-top:28px" ${r()}><a class="btn block" href="#/lista">Ver minha lista</a></div>
     <div class="sticky-cta"><div class="inner"><a class="btn solid block" href="#/lista"><span class="tally"></span></a></div></div>
   `);
 
@@ -271,8 +270,11 @@ function telaLista() {
       </div>
       <hr ${rc('rule')}>
       <p ${r()}><span class="eyebrow">Ato de contrição</span></p>
-      <p ${rc('formula')}>${CONTRICAO.breve}</p>
-      <p ${rc('muted small')}><a href="#/como">Ver o passo a passo e a versão completa</a></p>
+      <div ${r()} class="choices" role="group" aria-label="Ato de contrição" style="margin-bottom:6px">
+        <button class="choice" data-contricao="breve" aria-pressed="true">Breve</button>
+        <button class="choice" data-contricao="completo" aria-pressed="false">Completo</button>
+      </div>
+      <p ${rc('formula')} id="contricao">${CONTRICAO.breve}</p>
       <hr ${rc('rule')}>
       <p ${rc('muted small')}>Depois de se confessar, toque abaixo. A lista é apagada para sempre: “Eu, das suas iniquidades, não me lembrarei mais” (Hb 8,12).</p>
       <div ${r()} style="margin-top:14px"><button class="btn solid block" id="confessei">Confessei</button></div>
@@ -280,6 +282,13 @@ function telaLista() {
   `);
 
   $view.querySelector('#nota').addEventListener('input', (e) => store.set('nota', e.target.value));
+
+  $view.querySelectorAll('[data-contricao]').forEach((b) => b.addEventListener('click', () => {
+    $view.querySelectorAll('[data-contricao]').forEach((x) => x.setAttribute('aria-pressed', x === b));
+    const $c = $view.querySelector('#contricao');
+    $c.innerHTML = CONTRICAO[b.dataset.contricao];
+    $c.classList.remove('swap'); void $c.offsetWidth; $c.classList.add('swap');
+  }));
 
   $view.querySelectorAll('.rm').forEach((b) => b.addEventListener('click', () => {
     const li = b.closest('li');
@@ -346,17 +355,104 @@ function ligarToggle(onChange) {
   }));
 }
 
+// ---------- Constância no terço ----------
+// Marcos de terços rezados. Cada um lembra algo da fé.
+const MARCOS = [
+  { n: 1, t: 'O primeiro terço' },
+  { n: 7, t: 'Uma semana de terços' },
+  { n: 20, t: 'Os vinte mistérios' },
+  { n: 33, t: 'Os anos de Cristo' },
+  { n: 54, t: 'Como a novena de 54 dias' },
+  { n: 100, t: 'Cem terços' },
+  { n: 150, t: 'O saltério de Maria' },
+  { n: 365, t: 'Um ano de terço' },
+];
+
+const chaveDia = (d) => `${d.getFullYear()}-${d.getMonth() + 1}-${d.getDate()}`;
+
+// Quantos terços foram rezados em cada dia: { 'aaaa-m-d': n }
+function diario() {
+  let d = store.get('tercoDiario', null);
+  if (!d) {
+    d = {};
+    const hoje = rezadosHoje();
+    if (hoje.length) d[hojeKey()] = hoje.length;
+  }
+  return d;
+}
+
 // Conta mais um terço rezado e guarda quais mistérios foram rezados hoje.
 function registrarTerco(conjunto) {
   const feitos = store.get('tercosRezados', 0) + 1;
   store.set('tercosRezados', feitos);
-  const h = rezadosHoje();
-  store.set('tercoHoje', { dia: hojeKey(), conjuntos: [...h, conjunto] });
+  const d = diario();
+  d[hojeKey()] = (d[hojeKey()] || 0) + 1;
+  store.set('tercoDiario', d);
+  store.set('tercoHoje', { dia: hojeKey(), conjuntos: [...rezadosHoje(), conjunto] });
   return feitos;
 }
+
+// Desfaz uma marcação feita por engano hoje.
+function desmarcarTerco(conjunto) {
+  const h = rezadosHoje();
+  const i = h.indexOf(conjunto);
+  if (i < 0) return store.get('tercosRezados', 0);
+  h.splice(i, 1);
+  store.set('tercoHoje', { dia: hojeKey(), conjuntos: h });
+  const feitos = Math.max(0, store.get('tercosRezados', 0) - 1);
+  store.set('tercosRezados', feitos);
+  const d = diario();
+  if (d[hojeKey()] > 1) d[hojeKey()]--; else delete d[hojeKey()];
+  store.set('tercoDiario', d);
+  return feitos;
+}
+
 function rezadosHoje() {
   const h = store.get('tercoHoje', null);
   return h && h.dia === hojeKey() ? h.conjuntos : [];
+}
+
+// Dias seguidos rezando. Se ainda não rezou hoje, a sequência de ontem continua valendo.
+function diasSeguidos(d) {
+  const dia = new Date();
+  if (!d[chaveDia(dia)]) dia.setDate(dia.getDate() - 1);
+  let n = 0;
+  while (d[chaveDia(dia)]) { n++; dia.setDate(dia.getDate() - 1); }
+  return n;
+}
+
+function constanciaHTML() {
+  const total = store.get('tercosRezados', 0);
+  const d = diario();
+  const seq = diasSeguidos(d);
+  const prox = MARCOS.find((m) => m.n > total);
+  const ant = [...MARCOS].reverse().find((m) => m.n <= total);
+  const semana = [];
+  for (let k = 6; k >= 0; k--) {
+    const dia = new Date();
+    dia.setDate(dia.getDate() - k);
+    semana.push({ w: dia.getDay(), feito: !!d[chaveDia(dia)], hoje: k === 0 });
+  }
+  const base = ant ? ant.n : 0;
+  const pct = prox ? Math.round(((total - base) / (prox.n - base)) * 100) : 100;
+  return `
+    <div class="c-top">
+      <div class="c-total"><span class="big" data-total>${total}</span><span class="lbl">${total === 1 ? 'terço rezado' : 'terços rezados'}</span></div>
+      <div class="c-seq"><span class="big2">${seq}</span><span class="lbl">${seq === 1 ? 'dia seguido' : 'dias seguidos'}</span></div>
+    </div>
+    <ol class="semana" aria-label="Últimos sete dias">
+      ${semana.map((s) => `<li class="${s.feito ? 'feito' : ''}${s.hoje ? ' hoje' : ''}"><i></i><span>${'DSTQQSS'[s.w]}</span></li>`).join('')}
+    </ol>
+    ${prox ? `
+      <div class="proximo">
+        <p class="eyebrow">Próximo marco · ${prox.n} ${prox.n === 1 ? 'terço' : 'terços'}</p>
+        <p class="pm-t">${prox.t}</p>
+        <div class="progress"><i style="width:${pct}%"></i></div>
+        <p class="muted small" style="margin-top:8px">${prox.n - total === 1 ? 'Falta 1 terço.' : `Faltam ${prox.n - total} terços.`}</p>
+      </div>` : `<p class="pm-t" style="margin-top:20px">Todos os marcos alcançados. Que Nossa Senhora te guarde.</p>`}
+    <ul class="marcos" aria-label="Marcos">
+      ${MARCOS.map((m) => `<li class="${total >= m.n ? 'ganho' : ''}" data-marco="${m.n}" title="${m.t}"><span>${m.n}</span></li>`).join('')}
+    </ul>`;
 }
 
 function telaTerco() {
@@ -373,6 +469,9 @@ function telaTerco() {
     <div ${r()} style="margin-top:20px">${langToggle()}</div>
     ${continuar ? `<div ${r()} style="margin-top:22px"><a class="btn solid block" href="#/terco/rezar/${prog.conjunto}">Continuar de onde parei</a></div>` : ''}
     <hr ${rc('rule')}>
+    <p ${r()}><span class="eyebrow">Sua constância</span></p>
+    <section ${rc('constancia')} aria-live="polite">${constanciaHTML()}</section>
+    <hr ${rc('rule')}>
     <ul ${rc('rows')}>
       ${ordem.map((c) => {
         const M = MISTERIOS[c];
@@ -385,6 +484,7 @@ function telaTerco() {
           <div class="opcoes"><div class="opcoes-in">
             <a class="btn solid block" href="#/terco/rezar/${c}">Rezar o terço guiado</a>
             <button class="btn block" data-marcar>Já rezei · marcar como rezado</button>
+            <button class="btn ghost block" data-desmarcar>Desmarcar</button>
           </div></div>
         </li>`;
       }).join('')}
@@ -395,29 +495,62 @@ function telaTerco() {
   `);
   ligarToggle(() => {});
 
+  const $const = $view.querySelector('.constancia');
+
   const marcarFeitos = () => {
     const feitos = rezadosHoje();
     $view.querySelectorAll('.misterio-op').forEach((li) => li.classList.toggle('rezado', feitos.includes(li.dataset.c)));
   };
   marcarFeitos();
 
+  // Redesenha a constância, contando o número até o novo total.
+  function atualizarConstancia(de, novoMarco) {
+    $const.innerHTML = constanciaHTML();
+    const $n = $const.querySelector('[data-total]');
+    const ate = +$n.textContent;
+    const t0 = performance.now();
+    const passo = (t) => {
+      const p = Math.min(1, (t - t0) / 600);
+      $n.textContent = Math.round(de + (ate - de) * (1 - Math.pow(1 - p, 3)));
+      if (p < 1) requestAnimationFrame(passo);
+    };
+    requestAnimationFrame(passo);
+    $const.classList.remove('pulso'); void $const.offsetWidth; $const.classList.add('pulso');
+    if (novoMarco) {
+      const m = $const.querySelector(`[data-marco="${novoMarco.n}"]`);
+      if (m) m.classList.add('novo');
+    }
+  }
+
+  const fecharOpcoes = (li) => { li.classList.remove('aberto'); li.querySelector('[data-abrir]').setAttribute('aria-expanded', 'false'); };
+
   $view.querySelectorAll('.misterio-op').forEach((li) => {
     const botao = li.querySelector('[data-abrir]');
     botao.addEventListener('click', () => {
       const abrir = !li.classList.contains('aberto');
-      $view.querySelectorAll('.misterio-op.aberto').forEach((x) => { x.classList.remove('aberto'); x.querySelector('[data-abrir]').setAttribute('aria-expanded', 'false'); });
+      $view.querySelectorAll('.misterio-op.aberto').forEach(fecharOpcoes);
       li.classList.toggle('aberto', abrir);
       botao.setAttribute('aria-expanded', abrir);
       vibrar(6);
     });
-    li.querySelector('[data-marcar]').addEventListener('click', (e) => {
+    li.querySelector('[data-marcar]').addEventListener('click', () => {
+      const antes = store.get('tercosRezados', 0);
       const feitos = registrarTerco(li.dataset.c);
+      const marco = MARCOS.find((m) => m.n === feitos);
       vibrar([20, 60, 20]);
       marcarFeitos();
-      e.currentTarget.textContent = 'Marcado como rezado';
-      e.currentTarget.disabled = true;
-      toast(feitos === 1 ? 'Primeiro terço contabilizado' : `${feitos} terços rezados`);
-      setTimeout(() => { li.classList.remove('aberto'); botao.setAttribute('aria-expanded', 'false'); }, 900);
+      atualizarConstancia(antes, marco);
+      toast(marco ? `Novo marco: ${marco.t}` : `${feitos} terços rezados`);
+      setTimeout(() => fecharOpcoes(li), 700);
+    });
+    li.querySelector('[data-desmarcar]').addEventListener('click', () => {
+      const antes = store.get('tercosRezados', 0);
+      desmarcarTerco(li.dataset.c);
+      vibrar(10);
+      marcarFeitos();
+      atualizarConstancia(antes);
+      toast('Marcação desfeita');
+      setTimeout(() => fecharOpcoes(li), 500);
     });
   });
 }
@@ -832,7 +965,7 @@ function telaMais() {
 
   $view.querySelector('#apagar').addEventListener('click', () => {
     if (!confirm('Apagar a lista, as anotações, a data da última confissão e o progresso do terço?')) return;
-    ['marcados', 'nota', 'ultimaConfissao', 'tercoProgresso', 'tercosRezados', 'tercoHoje', 'estados'].forEach(store.del);
+    ['marcados', 'nota', 'ultimaConfissao', 'tercoProgresso', 'tercosRezados', 'tercoHoje', 'tercoDiario', 'estados'].forEach(store.del);
     toast('Dados apagados');
     telaMais();
   });
