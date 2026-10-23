@@ -381,12 +381,16 @@ function diario() {
   return d;
 }
 
-// Conta mais um terço rezado e guarda quais mistérios foram rezados hoje.
+// O rosário completo (os quatro conjuntos de mistérios) vale quatro terços.
+const ORDEM_ROSARIO = ['gozosos', 'luminosos', 'dolorosos', 'gloriosos'];
+const valeTercos = (conjunto) => (conjunto === 'rosario' ? 4 : 1);
+
+// Conta o terço (ou rosário) rezado e guarda quais mistérios foram rezados hoje.
 function registrarTerco(conjunto) {
-  const feitos = store.get('tercosRezados', 0) + 1;
+  const feitos = store.get('tercosRezados', 0) + valeTercos(conjunto);
   store.set('tercosRezados', feitos);
   const d = diario();
-  d[hojeKey()] = (d[hojeKey()] || 0) + 1;
+  d[hojeKey()] = (d[hojeKey()] || 0) + valeTercos(conjunto);
   store.set('tercoDiario', d);
   store.set('tercoHoje', { dia: hojeKey(), conjuntos: [...rezadosHoje(), conjunto] });
   return feitos;
@@ -399,10 +403,11 @@ function desmarcarTerco(conjunto) {
   if (i < 0) return store.get('tercosRezados', 0);
   h.splice(i, 1);
   store.set('tercoHoje', { dia: hojeKey(), conjuntos: h });
-  const feitos = Math.max(0, store.get('tercosRezados', 0) - 1);
+  const feitos = Math.max(0, store.get('tercosRezados', 0) - valeTercos(conjunto));
   store.set('tercosRezados', feitos);
   const d = diario();
-  if (d[hojeKey()] > 1) d[hojeKey()]--; else delete d[hojeKey()];
+  d[hojeKey()] = (d[hojeKey()] || 0) - valeTercos(conjunto);
+  if (d[hojeKey()] <= 0) delete d[hojeKey()];
   store.set('tercoDiario', d);
   return feitos;
 }
@@ -460,7 +465,8 @@ function telaTerco() {
   const hoje = POR_DIA[new Date().getDay()];
   const prog = store.get('tercoProgresso', null);
   const continuar = prog && prog.dia === hojeKey() && prog.i > 0;
-  const ordem = ['gozosos', 'luminosos', 'dolorosos', 'gloriosos'];
+  const ordem = [...ORDEM_ROSARIO, 'rosario'];
+  const ROSARIO = { pt: 'Rosário completo', la: 'Rosarium integrum', dias: 'os 20 mistérios, conta como 4 terços' };
 
   render(`
     <p ${r()}><span class="eyebrow">Santo Terço</span></p>
@@ -474,15 +480,15 @@ function telaTerco() {
     <hr ${rc('rule')}>
     <ul ${rc('rows')}>
       ${ordem.map((c) => {
-        const M = MISTERIOS[c];
-        return `<li class="misterio-op" data-c="${c}">
+        const M = MISTERIOS[c] || ROSARIO;
+        return `<li class="misterio-op${c === 'rosario' ? ' rosario-op' : ''}" data-c="${c}">
           <button class="row" data-abrir aria-expanded="false">
             <span class="body"><span class="title">${M.pt}${c === hoje ? ' <em style="color:var(--accent);font-size:16px">· hoje</em>' : ''}</span><span class="sub">${M.la} · ${M.dias}</span></span>
             <span class="feito" aria-label="Rezado hoje">${ICON_TICK}</span>
             ${ICON_ARROW}
           </button>
           <div class="opcoes"><div class="opcoes-in">
-            <a class="btn solid block" href="#/terco/rezar/${c}">Rezar o terço guiado</a>
+            <a class="btn solid block" href="#/terco/rezar/${c}">${c === 'rosario' ? 'Rezar o rosário guiado' : 'Rezar o terço guiado'}</a>
             <button class="btn block" data-marcar>Já rezei · marcar como rezado</button>
             <button class="btn ghost block" data-desmarcar>Desmarcar</button>
           </div></div>
@@ -536,11 +542,11 @@ function telaTerco() {
     li.querySelector('[data-marcar]').addEventListener('click', () => {
       const antes = store.get('tercosRezados', 0);
       const feitos = registrarTerco(li.dataset.c);
-      const marco = MARCOS.find((m) => m.n === feitos);
+      const marco = [...MARCOS].reverse().find((m) => m.n > antes && m.n <= feitos);
       vibrar([20, 60, 20]);
       marcarFeitos();
       atualizarConstancia(antes, marco);
-      toast(marco ? `Novo marco: ${marco.t}` : `${feitos} terços rezados`);
+      toast(marco ? `Novo marco: ${marco.t}` : li.dataset.c === 'rosario' ? `Rosário rezado · ${feitos} terços` : `${feitos} terços rezados`);
       setTimeout(() => fecharOpcoes(li), 700);
     });
     li.querySelector('[data-desmarcar]').addEventListener('click', () => {
@@ -661,19 +667,23 @@ function telaAprender() {
   }));
 }
 
-// Rezar: uma etapa por vez (início, cinco mistérios, conclusão), sem precisar tocar a cada Ave-Maria.
-function etapasDoTerco() {
-  const e = [{ grupo: 'inicio', itens: [{ o: 'sinal' }, { o: 'credo' }, { o: 'pai' }, { o: 'ave', vezes: 3 }, { o: 'gloria' }] }];
-  for (let k = 0; k < 5; k++) e.push({ grupo: k, itens: [{ misterio: k }, { o: 'pai' }, { o: 'ave', vezes: 10 }, { o: 'gloria' }, { o: 'fatima' }] });
-  e.push({ grupo: 'fim', itens: [{ o: 'salve' }, { o: 'sinal' }] });
+// Rezar: uma etapa por vez (início, os mistérios, conclusão), sem precisar tocar a cada Ave-Maria.
+// O rosário completo reza os quatro conjuntos em seguida: vinte mistérios.
+function etapasDoTerco(conjunto) {
+  const conjs = conjunto === 'rosario' ? ORDEM_ROSARIO : [conjunto];
+  const e = [{ grupo: 'inicio', conj: conjs[0], itens: [{ o: 'sinal' }, { o: 'credo' }, { o: 'pai' }, { o: 'ave', vezes: 3 }, { o: 'gloria' }] }];
+  conjs.forEach((c) => {
+    for (let k = 0; k < 5; k++) e.push({ grupo: k, conj: c, itens: [{ misterio: k }, { o: 'pai' }, { o: 'ave', vezes: 10 }, { o: 'gloria' }, { o: 'fatima' }] });
+  });
+  e.push({ grupo: 'fim', conj: conjs[conjs.length - 1], itens: [{ o: 'salve' }, { o: 'sinal' }] });
   return e;
 }
 
 function telaRezar(conjunto) {
   delayIdx = 0;
-  if (!MISTERIOS[conjunto]) conjunto = POR_DIA[new Date().getDay()];
-  const M = MISTERIOS[conjunto];
-  const etapas = etapasDoTerco();
+  if (!MISTERIOS[conjunto] && conjunto !== 'rosario') conjunto = POR_DIA[new Date().getDay()];
+  const rosario = conjunto === 'rosario';
+  const etapas = etapasDoTerco(conjunto);
   const prog = store.get('tercoProgresso', null);
   let i = prog && prog.dia === hojeKey() && prog.conjunto === conjunto ? Math.min(prog.i, etapas.length - 1) : 0;
   const contagem = {};
@@ -684,7 +694,7 @@ function telaRezar(conjunto) {
         <a class="back" href="#/terco" style="margin:0">${ICON_BACK} Sair</a>
         ${langToggle()}
       </div>
-      <div class="etapas rise" style="--i:1" role="tablist">
+      <div class="etapas rise${rosario ? ' muitas' : ''}" style="--i:1;grid-template-columns:repeat(${etapas.length}, 1fr)" role="tablist">
         ${etapas.map((e, k) => `<button class="seg" data-etapa="${k}" aria-label="${nomeEtapa(e, 'pt')}"><i></i></button>`).join('')}
       </div>
       <div class="etapa" aria-live="polite"></div>
@@ -700,14 +710,17 @@ function telaRezar(conjunto) {
   function nomeEtapa(e, l) {
     if (e.grupo === 'inicio') return l === 'la' ? 'Initium' : 'Início';
     if (e.grupo === 'fim') return l === 'la' ? 'Finis' : 'Conclusão';
-    return l === 'la' ? `Mysterium ${ORDINAIS.la[e.grupo]}` : `${ORD[e.grupo]} mistério`;
+    if (l === 'la') return `Mysterium ${ORDINAIS.la[e.grupo]}`;
+    return rosario ? `${ORD[e.grupo]} ${MISTERIOS[e.conj].pt.replace('Mistérios ', '').toLowerCase().replace(/s$/, '')}` : `${ORD[e.grupo]} mistério`;
   }
 
   function desenhar(animar) {
     const l = lingua();
     const e = etapas[i];
+    const M = MISTERIOS[e.conj];
+    const sub = rosario && typeof e.grupo !== 'number' ? (l === 'la' ? 'Rosarium integrum' : 'Rosário completo') : l === 'la' ? M.la : M.pt;
     $etapa.innerHTML = `
-      <p class="where">${nomeEtapa(e, l)} <span class="muted">· ${l === 'la' ? M.la : M.pt}</span></p>
+      <p class="where">${nomeEtapa(e, l)} <span class="muted">· ${sub}</span></p>
       ${e.itens.map((it, j) => {
         if (it.misterio !== undefined) {
           const m = M.itens[it.misterio];
@@ -733,7 +746,7 @@ function telaRezar(conjunto) {
     if (animar) { $etapa.classList.remove('swap'); void $etapa.offsetWidth; $etapa.classList.add('swap'); }
     $view.querySelectorAll('.seg').forEach((s, k) => { s.classList.toggle('done', k < i); s.classList.toggle('now', k === i); });
     $view.querySelector('#voltar').disabled = i === 0;
-    $view.querySelector('#avancar').textContent = i === etapas.length - 1 ? 'Terminei o terço' : `${nomeEtapa(etapas[i + 1], 'pt')} →`;
+    $view.querySelector('#avancar').textContent = i === etapas.length - 1 ? (rosario ? 'Terminei o rosário' : 'Terminei o terço') : `${nomeEtapa(etapas[i + 1], 'pt')} →`;
     store.set('tercoProgresso', { dia: hojeKey(), conjunto, i });
   }
 
@@ -754,7 +767,7 @@ function telaRezar(conjunto) {
     $view.innerHTML = `
       <div class="absolvo">
         <svg class="cross" viewBox="0 0 54 80"><path d="M27 2v76M6 24h42"/></svg>
-        <h2 class="rise" style="--i:3;margin-top:22px">Terço <em>rezado</em>.</h2>
+        <h2 class="rise" style="--i:3;margin-top:22px">${rosario ? 'Rosário' : 'Terço'} <em>rezado</em>.</h2>
         <p class="lead rise" style="--i:4">${feitos === 1 ? 'O primeiro terço rezado com o Lumen.' : `${feitos} terços rezados com o Lumen.`}</p>
         <div class="rise" style="--i:5;margin-top:26px"><a class="btn block" href="#/">Voltar ao início</a></div>
       </div>`;
@@ -791,11 +804,20 @@ function telaRezar(conjunto) {
 // ---------- Santos e festas ----------
 const SEMANA_MIN = ['domingo', 'segunda-feira', 'terça-feira', 'quarta-feira', 'quinta-feira', 'sexta-feira', 'sábado'];
 
+// Estado da aba entre o calendário e o dia aberto
+const santos = { mes: null, rolagem: 0, origem: null, voltando: false, veioDoCalendario: false };
+
 function telaSantos(param) {
+  const n = deIso(param);
+  if (n !== null) return telaDiaSanto(n);
+  telaCalendario();
+}
+
+// Panorama: o calendário do mês e a lista das festas e memórias.
+function telaCalendario() {
   delayIdx = 0;
   const hoje = hojeNum();
-  let sel = deIso(param) ?? hoje;
-  let mes = { y: data(sel).y, m: data(sel).m };
+  let mes = santos.mes || { y: data(hoje).y, m: data(hoje).m };
 
   render(`
     <p ${r()}><span class="eyebrow">Santos e festas <span class="dot">·</span> calendário litúrgico</span></p>
@@ -809,14 +831,12 @@ function telaSantos(param) {
     <p ${rc('cal-legenda')}>
       <span><i class="marca t-festa"></i> festa ou solenidade</span><span><i class="marca t-santo"></i> dia de santo</span>
     </p>
-    <section id="dia-sel" ${rc('dia-sel')}></section>
     <hr ${rc('rule')}>
     <p ${r()}><span class="eyebrow">Neste mês</span></p>
     <ul ${rc('rows mes-lista')}></ul>
   `);
 
   const $cal = $view.querySelector('.cal');
-  const $dia = $view.querySelector('#dia-sel');
   const $lista = $view.querySelector('.mes-lista');
 
   function desenharMes() {
@@ -831,7 +851,7 @@ function telaSantos(param) {
       // marca: vermelho para festa e solenidade, dourado para dia de santo, nada nos dias comuns
       const tipo = !c ? 'x' : 'SF'.includes(c.g) ? 'festa' : 'santo';
       if (D.principal) destaques.push(D);
-      html += `<button class="cd t-${tipo}${n === hoje ? ' hoje' : ''}${n === sel ? ' sel' : ''}" data-n="${n}" aria-label="${D.d} de ${MESES[D.m - 1]}${c ? ': ' + esc(c.n) : ''}">
+      html += `<button class="cd t-${tipo}${n === hoje ? ' hoje' : ''}" data-n="${n}" aria-label="${D.d} de ${MESES[D.m - 1]}${c ? ': ' + esc(c.n) : ''}">
         <span class="cn">${D.d}</span><i class="marca"></i>${c ? `<span class="cs">${esc(c.n.split(',')[0])}</span>` : ''}</button>`;
     }
     $cal.innerHTML = html;
@@ -844,24 +864,91 @@ function telaSantos(param) {
       </button></li>`).join('') : '<li class="muted" style="padding:16px 0">Nenhuma festa ou memória obrigatória neste mês.</li>';
   }
 
-  function desenharDia(animar) {
-    const D = dia(sel);
+  // Abrir um dia: guarda onde a pessoa estava e de onde sai o zoom.
+  function abrir(n, el) {
+    const r0 = el.getBoundingClientRect();
+    santos.origem = { x: r0.left + r0.width / 2, y: r0.top + r0.height / 2 };
+    santos.rolagem = window.scrollY;
+    santos.mes = mes;
+    santos.veioDoCalendario = true;
+    vibrar(6);
+    location.hash = `#/santos/${iso(n)}`;
+  }
+
+  const clique = (e) => {
+    const alvo = e.target.closest('[data-n]');
+    if (alvo) return abrir(+alvo.dataset.n, alvo);
+    const nav = e.target.closest('[data-mes]');
+    if (nav) {
+      const k = mes.y * 12 + (mes.m - 1) + +nav.dataset.mes;
+      mes = { y: Math.floor(k / 12), m: (k % 12) + 1 };
+      santos.mes = mes;
+      desenharMes();
+      $cal.classList.remove('swap'); void $cal.offsetWidth; $cal.classList.add('swap');
+    }
+  };
+  [$cal, $lista, $view.querySelector('.cal-head')].forEach((el) => el.addEventListener('click', clique));
+
+  desenharMes();
+
+  // Voltando de um dia: o calendário reaparece no mesmo ponto, "saindo" do dia que estava aberto.
+  if (santos.voltando) {
+    santos.voltando = false;
+    $view.querySelectorAll('.rise').forEach((el) => el.classList.remove('rise'));
+    window.scrollTo(0, santos.rolagem);
+    const cel = santos.dia && $cal.querySelector(`[data-n="${santos.dia}"]`);
+    if (cel) {
+      const rv = $view.getBoundingClientRect();
+      const rc0 = cel.getBoundingClientRect();
+      $view.style.transformOrigin = `${rc0.left + rc0.width / 2 - rv.left}px ${rc0.top + rc0.height / 2 - rv.top}px`;
+      cel.classList.add('veio');
+    }
+    $view.classList.remove('zoom-volta'); void $view.offsetWidth; $view.classList.add('zoom-volta');
+    $view.addEventListener('animationend', () => $view.classList.remove('zoom-volta'), { once: true });
+  }
+}
+
+// Um dia aberto: grau, santo, nota e (em breve) o Evangelho. Desliza para os lados.
+function telaDiaSanto(n0) {
+  delayIdx = 0;
+  const hoje = hojeNum();
+  let n = n0;
+
+  render(`
+    <div class="dia-view">
+      <div class="dv-top">
+        <button class="back" id="dv-voltar" style="margin:0">${ICON_BACK} Calendário</button>
+        <div class="dv-nav">
+          <button class="cal-nav" data-passo="-1" aria-label="Dia anterior">${ICON_BACK}</button>
+          <button class="cal-nav" data-passo="1" aria-label="Próximo dia">${ICON_FWD}</button>
+        </div>
+      </div>
+      <div class="dv-corpo" aria-live="polite"></div>
+    </div>
+  `);
+
+  const $dv = $view.querySelector('.dia-view');
+  const $corpo = $view.querySelector('.dv-corpo');
+
+  function desenhar(dir) {
+    const D = dia(n);
     const c = D.destaque;
     const outros = D.outros.filter((o) => o.n !== (c && c.n) || o.nota);
     const motivo = (o) => o.nota || (o.g === 'c' ? 'Pode ser lembrada na oração do dia.' : o.impedida ? (D.w === 0 ? 'Neste ano cai num domingo e não é celebrada.' : 'Neste ano não é celebrada, por coincidir com uma celebração maior.') : '');
-    const tempoMin = D.tempo.replace(/^Tempo/, 'tempo');
-    $dia.innerHTML = `
-      <p class="dia-data">${SEMANA_MIN[D.w]}, ${D.d} de ${MESES[D.m - 1]} de ${D.y}${sel === hoje ? ' <span class="dot">·</span> hoje' : ''}</p>
-      <p class="lit-line"><span class="lc lc-${D.cor}"></span>${D.titulo}</p>
-      <p class="muted small" style="margin-top:4px">${D.tempo} · cor ${CORES[D.cor]} · Ano ${D.ano}, ${D.anoPar ? 'ano par' : 'ano ímpar'}</p>
+    $corpo.innerHTML = `
+      <div class="hero-date dv-data">
+        <span class="day">${D.d}</span>
+        <span class="meta"><span class="wd">${SEMANA_MIN[D.w]}</span><span class="mo">${MESES[D.m - 1]} ${D.y}${n === hoje ? ' · hoje' : ''}</span></span>
+      </div>
+      <p class="lit-line"><span class="lc lc-${D.cor}"></span>${D.w === 0 && !D.principal ? D.titulo : D.tempo}</p>
+      <hr class="rule">
       ${c ? `
         <p class="eyebrow grau">${GRAUS[c.g]}${c.br ? ' · próprio do Brasil' : ''}</p>
-        <h2>${c.n}</h2>
+        <h2 class="dv-nome">${c.n}</h2>
         <p class="lead">${c.b}</p>
         ${c.nota ? `<p class="muted small" style="margin-top:10px">${c.nota}</p>` : ''}` : `
-        <p class="eyebrow grau">Dia de semana</p>
-        <h2>${D.tempo}</h2>
-        <p class="lead">Nenhum santo é celebrado neste dia no calendário geral. A liturgia segue o ${tempoMin}.</p>`}
+        <p class="eyebrow grau">${D.w === 0 ? 'Domingo' : 'Dia de semana'}</p>
+        <p class="lead">Nenhum santo é celebrado neste dia no calendário geral.</p>`}
       ${outros.length ? `
         <p class="eyebrow" style="margin-top:26px">Também neste dia</p>
         <ul class="tambem">${outros.map((o) => `<li>
@@ -870,40 +957,66 @@ function telaSantos(param) {
           <span class="b">${o.b}</span>
           ${motivo(o) ? `<span class="nt">${motivo(o)}</span>` : ''}
         </li>`).join('')}</ul>` : ''}
-      ${sel !== hoje ? `<button class="btn ghost" id="ir-hoje" style="margin-top:22px">Voltar para hoje</button>` : ''}
+      <hr class="rule">
+      <p class="eyebrow">Evangelho do dia</p>
+      <p class="muted">Em breve, o Evangelho de cada dia vai aparecer aqui.</p>
+      <p class="dv-dica">Deslize para os lados para ver outros dias</p>
     `;
-    if (animar) { $dia.classList.remove('swap'); void $dia.offsetWidth; $dia.classList.add('swap'); }
+    if (dir) { $corpo.classList.remove('de-dir', 'de-esq'); void $corpo.offsetWidth; $corpo.classList.add(dir > 0 ? 'de-dir' : 'de-esq'); }
   }
 
-  function escolher(n) {
-    sel = n;
-    const x = data(n);
-    mes = { y: x.y, m: x.m };
-    desenharMes();
-    desenharDia(true);
-    history.replaceState(null, '', n === hoje ? '#/santos' : `#/santos/${iso(n)}`);
+  function passar(k) {
+    n += k;
+    santos.dia = n;
+    santos.mes = { y: data(n).y, m: data(n).m };
+    history.replaceState(null, '', `#/santos/${iso(n)}`);
     vibrar(6);
-    const topo = $dia.getBoundingClientRect().top;
-    if (topo > window.innerHeight * 0.55 || topo < 0) $dia.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    desenhar(k);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   }
 
-  // ouvintes nos blocos da tela (o <main> é reaproveitado entre telas)
-  const clique = (e) => {
-    if (e.target.closest('#ir-hoje')) return escolher(hoje);
-    const alvo = e.target.closest('[data-n]');
-    if (alvo) return escolher(+alvo.dataset.n);
-    const nav = e.target.closest('[data-mes]');
-    if (nav) {
-      const k = mes.y * 12 + (mes.m - 1) + +nav.dataset.mes;
-      mes = { y: Math.floor(k / 12), m: (k % 12) + 1 };
-      desenharMes();
-      $cal.classList.remove('swap'); void $cal.offsetWidth; $cal.classList.add('swap');
-    }
-  };
-  [$cal, $dia, $lista, $view.querySelector('.cal-head')].forEach((el) => el.addEventListener('click', clique));
+  function voltar() {
+    santos.dia = n;
+    santos.voltando = true;
+    if (!santos.mes) santos.mes = { y: data(n).y, m: data(n).m };
+    if (santos.veioDoCalendario) { santos.veioDoCalendario = false; history.back(); } else location.hash = '#/santos';
+  }
 
-  desenharMes();
-  desenharDia(false);
+  $view.querySelector('#dv-voltar').addEventListener('click', voltar);
+  $view.querySelectorAll('[data-passo]').forEach((b) => b.addEventListener('click', () => passar(+b.dataset.passo)));
+
+  // deslizar para os lados no celular
+  let t0 = null;
+  $dv.addEventListener('touchstart', (e) => { t0 = { x: e.touches[0].clientX, y: e.touches[0].clientY }; }, { passive: true });
+  $dv.addEventListener('touchend', (e) => {
+    if (!t0) return;
+    const dx = e.changedTouches[0].clientX - t0.x;
+    const dy = e.changedTouches[0].clientY - t0.y;
+    t0 = null;
+    if (Math.abs(dx) > 60 && Math.abs(dx) > Math.abs(dy) * 1.5) passar(dx < 0 ? 1 : -1);
+  });
+
+  function teclas(e) {
+    if (!location.hash.startsWith('#/santos/')) return document.removeEventListener('keydown', teclas);
+    if (e.key === 'ArrowRight') passar(1);
+    if (e.key === 'ArrowLeft') passar(-1);
+    if (e.key === 'Escape') voltar();
+  }
+  document.addEventListener('keydown', teclas);
+
+  santos.dia = n;
+  if (!santos.mes) santos.mes = { y: data(n).y, m: data(n).m };
+  desenhar(0);
+
+  // Zoom a partir do dia tocado no calendário
+  if (santos.origem) {
+    const rv = $dv.getBoundingClientRect();
+    $dv.style.transformOrigin = `${santos.origem.x - rv.left}px ${santos.origem.y - rv.top}px`;
+    $dv.classList.add('zoom');
+    santos.origem = null;
+  } else {
+    $dv.classList.add('rise');
+  }
 }
 
 // ---------- Mais ----------
