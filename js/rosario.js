@@ -83,16 +83,17 @@ export function rosarioSVG() {
 
   let contas = '';
   // pingente: cruz, Pai-nosso, 3 Ave-Marias, conta grande do 1º mistério
+  // (legendas alternando entre os lados, para o desenho ficar equilibrado)
   const px = CX, ry = { p1: MEDALHA.y + 36, a: [MEDALHA.y + 62, MEDALHA.y + 79, MEDALHA.y + 96], p0: MEDALHA.y + 124, cruz: MEDALHA.y + 150 };
   contas += `<g class="conta cruz" data-conta="cruz" style="--k:${k++}" role="button" tabindex="0" aria-label="cruz">
     <rect class="hit" x="${px - 20}" y="${ry.cruz - 4}" width="40" height="72"/>
     <path class="crz" d="M${px} ${ry.cruz}v62M${px - 15} ${ry.cruz + 17}h30"/>
-    ${txt(px + 24, ry.cruz + 22, [{ t: 'Na cruz', c: 'ac' }, 'Sinal da cruz', 'Creio'], 'start', 'lb')}
+    ${txt(px - 24, ry.cruz + 22, [{ t: 'Na cruz', c: 'ac' }, 'Sinal da cruz', 'Creio'], 'end', 'lb')}
   </g>`;
   contas += conta('p0', px, ry.p0, true, txt(px + 22, ry.p0 + 4, ['Pai-nosso'], 'start', 'lb'));
   ry.a.slice().reverse().forEach((y, j) => {
     const i = 2 - j;
-    contas += conta(`a0-${i}`, px, y, false, i === 1 ? txt(px + 22, y - 2, ['3 Ave-Marias', { t: 'fé, esperança e caridade', c: 'mu' }], 'start', 'lb') : '');
+    contas += conta(`a0-${i}`, px, y, false, i === 1 ? txt(px - 22, y - 2, ['3 Ave-Marias', { t: 'fé, esperança e caridade', c: 'mu' }], 'end', 'lb') : '');
   });
   contas += conta('p1', px, ry.p1, true, txt(px + 22, ry.p1 - 2, [{ t: '1º mistério', c: 'ac' }, 'Glória · Pai-nosso'], 'start', 'lb'));
 

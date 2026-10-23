@@ -133,6 +133,7 @@ function telaInicio() {
     <h2 ${r()}>${M.pt.replace('Mistérios ', 'Mistérios <em>')}</em></h2>
     <ol ${rc('mystery-list')}>${M.itens.map((it) => `<li>${it.pt}</li>`).join('')}</ol>
     <div ${r()} style="margin-top:18px"><a class="btn solid block" href="#/terco/rezar/${conj}">Rezar agora</a></div>
+    ${rezadosHoje().length ? `<p ${rc('feito-hoje')}>${ICON_TICK} Você já rezou o terço hoje.</p>` : ''}
     <hr ${rc('rule')}>
     <p ${r()}><span class="eyebrow">Confissão</span></p>
     <div ${r()}>${conf}</div>
@@ -345,6 +346,19 @@ function ligarToggle(onChange) {
   }));
 }
 
+// Conta mais um terço rezado e guarda quais mistérios foram rezados hoje.
+function registrarTerco(conjunto) {
+  const feitos = store.get('tercosRezados', 0) + 1;
+  store.set('tercosRezados', feitos);
+  const h = rezadosHoje();
+  store.set('tercoHoje', { dia: hojeKey(), conjuntos: [...h, conjunto] });
+  return feitos;
+}
+function rezadosHoje() {
+  const h = store.get('tercoHoje', null);
+  return h && h.dia === hojeKey() ? h.conjuntos : [];
+}
+
 function telaTerco() {
   delayIdx = 0;
   const hoje = POR_DIA[new Date().getDay()];
@@ -362,9 +376,17 @@ function telaTerco() {
     <ul ${rc('rows')}>
       ${ordem.map((c) => {
         const M = MISTERIOS[c];
-        return `<li><a class="row" href="#/terco/rezar/${c}" ${c === hoje ? 'data-hoje' : ''}>
-          <span class="body"><span class="title">${M.pt}${c === hoje ? ' <em style="color:var(--accent);font-size:16px">· hoje</em>' : ''}</span><span class="sub">${M.la} · ${M.dias}</span></span>
-          ${ICON_ARROW}</a></li>`;
+        return `<li class="misterio-op" data-c="${c}">
+          <button class="row" data-abrir aria-expanded="false">
+            <span class="body"><span class="title">${M.pt}${c === hoje ? ' <em style="color:var(--accent);font-size:16px">· hoje</em>' : ''}</span><span class="sub">${M.la} · ${M.dias}</span></span>
+            <span class="feito" aria-label="Rezado hoje">${ICON_TICK}</span>
+            ${ICON_ARROW}
+          </button>
+          <div class="opcoes"><div class="opcoes-in">
+            <a class="btn solid block" href="#/terco/rezar/${c}">Rezar o terço guiado</a>
+            <button class="btn block" data-marcar>Já rezei · marcar como rezado</button>
+          </div></div>
+        </li>`;
       }).join('')}
     </ul>
     <ul ${rc('rows')} style="margin-top:28px">
@@ -372,6 +394,32 @@ function telaTerco() {
     </ul>
   `);
   ligarToggle(() => {});
+
+  const marcarFeitos = () => {
+    const feitos = rezadosHoje();
+    $view.querySelectorAll('.misterio-op').forEach((li) => li.classList.toggle('rezado', feitos.includes(li.dataset.c)));
+  };
+  marcarFeitos();
+
+  $view.querySelectorAll('.misterio-op').forEach((li) => {
+    const botao = li.querySelector('[data-abrir]');
+    botao.addEventListener('click', () => {
+      const abrir = !li.classList.contains('aberto');
+      $view.querySelectorAll('.misterio-op.aberto').forEach((x) => { x.classList.remove('aberto'); x.querySelector('[data-abrir]').setAttribute('aria-expanded', 'false'); });
+      li.classList.toggle('aberto', abrir);
+      botao.setAttribute('aria-expanded', abrir);
+      vibrar(6);
+    });
+    li.querySelector('[data-marcar]').addEventListener('click', (e) => {
+      const feitos = registrarTerco(li.dataset.c);
+      vibrar([20, 60, 20]);
+      marcarFeitos();
+      e.currentTarget.textContent = 'Marcado como rezado';
+      e.currentTarget.disabled = true;
+      toast(feitos === 1 ? 'Primeiro terço contabilizado' : `${feitos} terços rezados`);
+      setTimeout(() => { li.classList.remove('aberto'); botao.setAttribute('aria-expanded', 'false'); }, 900);
+    });
+  });
 }
 
 function textoOracao(k, l) {
@@ -409,6 +457,7 @@ function telaAprender() {
     </div>
     <div class="rosario-wrap">
       <div ${r()}>${rosarioSVG()}</div>
+      <div class="cp-fundo" aria-hidden="true"></div>
       <aside class="conta-painel" aria-live="polite">
         <div class="cp-top"><span class="eyebrow cp-onde">Toque numa conta</span><button class="cp-x" aria-label="Fechar">×</button></div>
         <div class="cp-corpo"><p class="muted">Cada conta do desenho mostra o que se reza nela, em português e em latim.</p></div>
@@ -420,6 +469,7 @@ function telaAprender() {
 
   const $painel = $view.querySelector('.conta-painel');
   const $svg = $view.querySelector('.rosario');
+  const $fundo = $view.querySelector('.cp-fundo');
 
   function mostrar(id) {
     atual = id;
@@ -447,6 +497,7 @@ function telaAprender() {
     $painel.querySelector('[data-passo="-1"]').disabled = i === 0;
     $painel.querySelector('[data-passo="1"]').disabled = i === sequencia.length - 1;
     $painel.classList.add('open', 'tem');
+    $fundo.classList.add('open');
     travarRolagem();
     $painel.classList.remove('swap'); void $painel.offsetWidth; $painel.classList.add('swap');
     vibrar(6);
@@ -458,11 +509,14 @@ function telaAprender() {
     const g = e.target.closest('[data-conta]');
     if (g) { e.preventDefault(); mostrar(g.dataset.conta); }
   });
-  $painel.querySelector('.cp-x').addEventListener('click', () => {
+  function fechar() {
     $painel.classList.remove('open');
+    $fundo.classList.remove('open');
     liberarRolagem();
     $svg.querySelectorAll('.conta.sel').forEach((g) => g.classList.remove('sel'));
-  });
+  }
+  $painel.querySelector('.cp-x').addEventListener('click', fechar);
+  $fundo.addEventListener('click', fechar);
   $painel.querySelectorAll('[data-passo]').forEach((b) => b.addEventListener('click', () => {
     const i = Math.max(0, sequencia.indexOf(atual));
     mostrar(sequencia[Math.min(sequencia.length - 1, Math.max(0, i + +b.dataset.passo))]);
@@ -561,8 +615,7 @@ function telaRezar(conjunto) {
 
   function concluir() {
     store.del('tercoProgresso');
-    const feitos = store.get('tercosRezados', 0) + 1;
-    store.set('tercosRezados', feitos);
+    const feitos = registrarTerco(conjunto);
     vibrar([20, 60, 20]);
     document.removeEventListener('keydown', teclas);
     $view.innerHTML = `
@@ -621,7 +674,7 @@ function telaSantos(param) {
     </div>
     <div ${rc('cal')}></div>
     <p ${rc('cal-legenda')}>
-      <span><b class="ls">8</b> solenidade</span><span><b>8</b> festa ou memória</span><span><b class="lm">8</b> dia de semana</span>
+      <span><i class="marca t-festa"></i> festa ou solenidade</span><span><i class="marca t-santo"></i> dia de santo</span>
     </p>
     <section id="dia-sel" ${rc('dia-sel')}></section>
     <hr ${rc('rule')}>
@@ -642,10 +695,11 @@ function telaSantos(param) {
     for (let n = primeiro; n <= ultimo; n++) {
       const D = dia(n);
       const c = D.destaque;
-      const grau = D.principal ? D.principal.g : c ? 'm' : 'x';
+      // marca: vermelho para festa e solenidade, dourado para dia de santo, nada nos dias comuns
+      const tipo = !c ? 'x' : 'SF'.includes(c.g) ? 'festa' : 'santo';
       if (D.principal) destaques.push(D);
-      html += `<button class="cd r-${grau}${n === hoje ? ' hoje' : ''}${n === sel ? ' sel' : ''}" data-n="${n}" aria-label="${D.d} de ${MESES[D.m - 1]}${c ? ': ' + esc(c.n) : ''}">
-        <span class="cn">${D.d}</span><i class="lc lc-${D.cor}"></i>${c && grau !== 'x' ? `<span class="cs">${esc(c.n.split(',')[0])}</span>` : ''}</button>`;
+      html += `<button class="cd t-${tipo}${n === hoje ? ' hoje' : ''}${n === sel ? ' sel' : ''}" data-n="${n}" aria-label="${D.d} de ${MESES[D.m - 1]}${c ? ': ' + esc(c.n) : ''}">
+        <span class="cn">${D.d}</span><i class="marca"></i>${c ? `<span class="cs">${esc(c.n.split(',')[0])}</span>` : ''}</button>`;
     }
     $cal.innerHTML = html;
     $view.querySelector('.cal-mes').innerHTML = `${MESES[mes.m - 1]} <em>${mes.y}</em>`;
@@ -653,7 +707,7 @@ function telaSantos(param) {
       <li><button class="row" data-n="${D.n}">
         <span class="num">${D.d}</span>
         <span class="body"><span class="title">${D.principal.n}</span><span class="sub">${GRAUS[D.principal.g]} · ${SEMANA_MIN[D.w]}${D.principal.br ? ' · próprio do Brasil' : ''}</span></span>
-        <i class="lc lc-${D.principal.c}"></i>
+        <i class="marca t-${'SF'.includes(D.principal.g) ? 'festa' : 'santo'}"></i>
       </button></li>`).join('') : '<li class="muted" style="padding:16px 0">Nenhuma festa ou memória obrigatória neste mês.</li>';
   }
 
@@ -778,7 +832,7 @@ function telaMais() {
 
   $view.querySelector('#apagar').addEventListener('click', () => {
     if (!confirm('Apagar a lista, as anotações, a data da última confissão e o progresso do terço?')) return;
-    ['marcados', 'nota', 'ultimaConfissao', 'tercoProgresso', 'tercosRezados', 'estados'].forEach(store.del);
+    ['marcados', 'nota', 'ultimaConfissao', 'tercoProgresso', 'tercosRezados', 'tercoHoje', 'estados'].forEach(store.del);
     toast('Dados apagados');
     telaMais();
   });
