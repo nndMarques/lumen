@@ -1,5 +1,7 @@
 import { EXAMES, ESTADOS, PASSOS, CONTRICAO } from './data/exames.js';
-import { ORACOES, MISTERIOS, POR_DIA, ORDINAIS, INTENCOES_INICIAIS, montarTerco } from './data/terco.js';
+import { ORACOES, MISTERIOS, POR_DIA, ORDINAIS, INTENCOES_INICIAIS } from './data/terco.js';
+import { rosarioSVG, ordem, oracoesDa, ORD } from './rosario.js';
+import { dia, data, hojeNum, iso, deIso, GRAUS, CORES } from './liturgia.js';
 
 // ---------- Armazenamento local (nada sai do aparelho) ----------
 const temaAtual = () => { try { return localStorage.getItem('lumen.theme') || 'auto'; } catch (e) { return 'auto'; } };
@@ -24,6 +26,7 @@ const vibrar = (ms) => { try { navigator.vibrate && navigator.vibrate(ms); } cat
 
 const ICON_ARROW = '<svg class="arrow" viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></svg>';
 const ICON_BACK = '<svg viewBox="0 0 24 24"><path d="M19 12H5M11 6l-6 6 6 6"/></svg>';
+const ICON_FWD = '<svg viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></svg>';
 const ICON_TICK = '<svg viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>';
 
 const DIAS = ['domingo', 'segunda-feira', 'terça-feira', 'quarta-feira', 'quinta-feira', 'sexta-feira', 'sábado'];
@@ -85,6 +88,8 @@ function telaInicio() {
   const frase = FRASES[(d.getFullYear() * 400 + d.getMonth() * 31 + d.getDate()) % FRASES.length];
   const dias = diasDesde(store.get('ultimaConfissao', null));
   const n = totalMarcados();
+  const L = dia(hojeNum());
+  const santo = L.destaque;
 
   let conf;
   if (dias === null) {
@@ -99,9 +104,16 @@ function telaInicio() {
       <span class="day">${d.getDate()}</span>
       <span class="meta"><span class="wd">${DIAS[d.getDay()]}</span><span class="mo">${MESES[d.getMonth()]} ${d.getFullYear()}</span></span>
     </div>
+    <p ${rc('lit-line')}><span class="lc lc-${L.cor}"></span>${L.titulo}</p>
     <hr ${rc('rule')}>
     <blockquote ${rc('quote')}>“${frase.x}”<cite>${frase.a}</cite></blockquote>
     <hr ${rc('rule')}>
+    ${santo ? `
+      <p ${r()}><span class="eyebrow">Hoje a Igreja celebra <span class="dot">·</span> ${GRAUS[santo.g]}</span></p>
+      <h2 ${r()}>${santo.n}</h2>
+      <p ${rc('muted')} style="margin-top:10px">${santo.b}</p>
+      <ul ${rc('rows')} style="margin-top:14px"><li><a class="row" href="#/santos"><span class="body"><span class="title">Calendário dos santos</span><span class="sub">Os santos e as festas de cada dia do ano</span></span>${ICON_ARROW}</a></li></ul>
+      <hr ${rc('rule')}>` : ''}
     <p ${r()}><span class="eyebrow">Terço de hoje</span></p>
     <h2 ${r()}>${M.pt.replace('Mistérios ', 'Mistérios <em>')}</em></h2>
     <ol ${rc('mystery-list')}>${M.itens.map((it) => `<li>${it.pt}</li>`).join('')}</ol>
@@ -328,7 +340,7 @@ function telaTerco() {
   render(`
     <p ${r()}><span class="eyebrow">Santo Terço</span></p>
     <h1 ${r()}>Rezar o <em>terço</em></h1>
-    <p ${rc('lead')}>Conta por conta, em português ou em latim. Toque na tela para avançar.</p>
+    <p ${rc('lead')}>Mistério por mistério, em português ou em latim, no seu ritmo.</p>
     <div ${r()} style="margin-top:20px">${langToggle()}</div>
     ${continuar ? `<div ${r()} style="margin-top:22px"><a class="btn solid block" href="#/terco/rezar/${prog.conjunto}">Continuar de onde parei</a></div>` : ''}
     <hr ${rc('rule')}>
@@ -347,9 +359,19 @@ function telaTerco() {
   ligarToggle(() => {});
 }
 
+function textoOracao(k, l) {
+  const o = ORACOES[k][l];
+  let x = esc(o.x);
+  if (o.r) x += `<br><span class="resp">℣.</span> ${o.r[0]}<br><span class="resp">℟.</span> ${o.r[1]}`;
+  return x;
+}
+
 function telaAprender() {
   delayIdx = 0;
-  const ordem = ['sinal', 'credo', 'pai', 'ave', 'gloria', 'fatima', 'salve'];
+  let conjunto = POR_DIA[new Date().getDay()];
+  const sequencia = ordem();
+  let atual = null;
+
   render(`
     <a class="back rise" style="--i:0" href="#/terco">${ICON_BACK} Terço</a>
     ${(delayIdx = 1, '')}
@@ -363,147 +385,321 @@ function telaAprender() {
     </ol>
     <p ${rc('muted small')} style="margin-top:16px">Os mistérios mudam conforme o dia: gozosos na segunda e no sábado, dolorosos na terça e na sexta, gloriosos na quarta e no domingo, luminosos na quinta.</p>
     <hr ${rc('rule')}>
-    <p ${r()}><span class="eyebrow">As orações · português e latim</span></p>
-    ${ordem.map((k) => {
-      const o = ORACOES[k];
-      return `<div ${rc('prayer-block')}>
-        <h3>${o.pt.t} <span class="muted" style="font-size:18px;font-style:italic">· ${o.la.t}</span></h3>
-        <p class="pt">${o.pt.x}${o.pt.r ? `<br><span class="muted">℣.</span> ${o.pt.r[0]}<br><span class="muted">℟.</span> ${o.pt.r[1]}` : ''}</p>
-        <p class="la">${o.la.x}${o.la.r ? `<br>℣. ${o.la.r[0]}<br>℟. ${o.la.r[1]}` : ''}</p>
-      </div>`;
-    }).join('')}
+    <p ${r()}><span class="eyebrow">As orações · conta por conta</span></p>
+    <p ${rc('lead')}>Toque numa conta para ver a oração. Comece pela cruz, embaixo, e suba.</p>
+    <div ${r()} style="margin-top:18px">
+      <div class="choices" role="group" aria-label="Mistérios">
+        ${['gozosos', 'luminosos', 'dolorosos', 'gloriosos'].map((c) => `<button class="choice" data-conj="${c}" aria-pressed="${c === conjunto}">${MISTERIOS[c].pt.replace('Mistérios ', '')}</button>`).join('')}
+      </div>
+    </div>
+    <div class="rosario-wrap">
+      <div ${r()}>${rosarioSVG()}</div>
+      <aside class="conta-painel" aria-live="polite">
+        <div class="cp-top"><span class="eyebrow cp-onde">Toque numa conta</span><button class="cp-x" aria-label="Fechar">×</button></div>
+        <div class="cp-corpo"><p class="muted">Cada conta do desenho mostra o que se reza nela, em português e em latim.</p></div>
+        <div class="cp-nav"><button class="btn ghost" data-passo="-1">Anterior</button><button class="btn solid" data-passo="1">Próxima</button></div>
+      </aside>
+    </div>
     <div ${r()} style="margin-top:28px"><a class="btn solid block" href="#/terco/rezar/${POR_DIA[new Date().getDay()]}">Rezar o terço de hoje</a></div>
   `);
+
+  const $painel = $view.querySelector('.conta-painel');
+  const $svg = $view.querySelector('.rosario');
+
+  function mostrar(id) {
+    atual = id;
+    const info = oracoesDa(id, conjunto);
+    const M = MISTERIOS[conjunto];
+    $svg.querySelectorAll('.conta').forEach((g) => g.classList.toggle('sel', g.dataset.conta === id));
+    $painel.querySelector('.cp-onde').textContent = info.onde;
+    $painel.querySelector('.cp-corpo').innerHTML = info.itens.map((it) => {
+      if (it.misterio !== undefined) return `
+        <div class="cp-mist">
+          <p class="eyebrow">${ORD[it.misterio]} mistério ${M.pt.replace('Mistérios ', '').toLowerCase().replace(/s$/, '')}</p>
+          <h3>${it.pt}</h3>
+          <p class="la">${it.la} · ${it.ref}</p>
+        </div>`;
+      const o = ORACOES[it.o];
+      return `<div class="cp-or">
+        <h3>${o.pt.t} <span class="muted">· ${o.la.t}</span></h3>
+        ${it.intencao !== undefined ? `<p class="cp-int">${INTENCOES_INICIAIS.pt[it.intencao]}</p>` : ''}
+        <p class="pt">${textoOracao(it.o, 'pt')}</p>
+        <p class="la">${textoOracao(it.o, 'la')}</p>
+      </div>`;
+    }).join('') + (info.medita ? `<p class="cp-int">Meditando: ${info.medita.pt}</p>` : '');
+    $painel.querySelector('.cp-corpo').scrollTop = 0;
+    const i = sequencia.indexOf(id);
+    $painel.querySelector('[data-passo="-1"]').disabled = i === 0;
+    $painel.querySelector('[data-passo="1"]').disabled = i === sequencia.length - 1;
+    $painel.classList.add('open', 'tem');
+    $painel.classList.remove('swap'); void $painel.offsetWidth; $painel.classList.add('swap');
+    vibrar(6);
+  }
+
+  $svg.addEventListener('click', (e) => { const g = e.target.closest('[data-conta]'); if (g) mostrar(g.dataset.conta); });
+  $svg.addEventListener('keydown', (e) => {
+    if (e.key !== 'Enter' && e.key !== ' ') return;
+    const g = e.target.closest('[data-conta]');
+    if (g) { e.preventDefault(); mostrar(g.dataset.conta); }
+  });
+  $painel.querySelector('.cp-x').addEventListener('click', () => {
+    $painel.classList.remove('open');
+    $svg.querySelectorAll('.conta.sel').forEach((g) => g.classList.remove('sel'));
+  });
+  $painel.querySelectorAll('[data-passo]').forEach((b) => b.addEventListener('click', () => {
+    const i = Math.max(0, sequencia.indexOf(atual));
+    mostrar(sequencia[Math.min(sequencia.length - 1, Math.max(0, i + +b.dataset.passo))]);
+  }));
+  $view.querySelectorAll('[data-conj]').forEach((b) => b.addEventListener('click', () => {
+    conjunto = b.dataset.conj;
+    $view.querySelectorAll('[data-conj]').forEach((x) => x.setAttribute('aria-pressed', x === b));
+    if (atual) mostrar(atual);
+  }));
+}
+
+// Rezar: uma etapa por vez (início, cinco mistérios, conclusão), sem precisar tocar a cada Ave-Maria.
+function etapasDoTerco() {
+  const e = [{ grupo: 'inicio', itens: [{ o: 'sinal' }, { o: 'credo' }, { o: 'pai' }, { o: 'ave', vezes: 3 }, { o: 'gloria' }] }];
+  for (let k = 0; k < 5; k++) e.push({ grupo: k, itens: [{ misterio: k }, { o: 'pai' }, { o: 'ave', vezes: 10 }, { o: 'gloria' }, { o: 'fatima' }] });
+  e.push({ grupo: 'fim', itens: [{ o: 'salve' }, { o: 'sinal' }] });
+  return e;
 }
 
 function telaRezar(conjunto) {
   delayIdx = 0;
   if (!MISTERIOS[conjunto]) conjunto = POR_DIA[new Date().getDay()];
   const M = MISTERIOS[conjunto];
-  const passos = montarTerco(conjunto);
+  const etapas = etapasDoTerco();
   const prog = store.get('tercoProgresso', null);
-  let i = prog && prog.dia === hojeKey() && prog.conjunto === conjunto ? Math.min(prog.i, passos.length - 1) : 0;
+  let i = prog && prog.dia === hojeKey() && prog.conjunto === conjunto ? Math.min(prog.i, etapas.length - 1) : 0;
+  const contagem = {};
 
   render(`
-    <div class="pray">
+    <div class="rezar">
       <div class="pray-top rise" style="--i:0">
         <a class="back" href="#/terco" style="margin:0">${ICON_BACK} Sair</a>
         ${langToggle()}
       </div>
-      <div class="progress rise" style="--i:1"><i></i></div>
-      <div class="pray-stage" role="button" tabindex="0" aria-live="polite"></div>
-      <div class="beads" aria-hidden="true"></div>
-      <div class="pray-nav">
-        <button class="btn ghost" id="voltar">Voltar</button>
-        <button class="btn solid" id="avancar">Avançar</button>
+      <div class="etapas rise" style="--i:1" role="tablist">
+        ${etapas.map((e, k) => `<button class="seg" data-etapa="${k}" aria-label="${nomeEtapa(e, 'pt')}"><i></i></button>`).join('')}
       </div>
+      <div class="etapa" aria-live="polite"></div>
     </div>
+    <div class="pray-nav fixa"><div class="inner">
+      <button class="btn ghost" id="voltar">Voltar</button>
+      <button class="btn solid" id="avancar">Avançar</button>
+    </div></div>
   `);
 
-  const $stage = $view.querySelector('.pray-stage');
-  const $beads = $view.querySelector('.beads');
-  const $bar = $view.querySelector('.progress i');
+  const $etapa = $view.querySelector('.etapa');
 
-  function onde(p, l) {
-    if (p.grupo === 'inicio') return l === 'la' ? 'Initium' : 'Início';
-    if (p.grupo === 'fim') return l === 'la' ? 'Finis' : 'Conclusão';
-    return l === 'la' ? `Mysterium ${ORDINAIS.la[p.grupo]}` : `${ORDINAIS.pt[p.grupo]} mistério`;
+  function nomeEtapa(e, l) {
+    if (e.grupo === 'inicio') return l === 'la' ? 'Initium' : 'Início';
+    if (e.grupo === 'fim') return l === 'la' ? 'Finis' : 'Conclusão';
+    return l === 'la' ? `Mysterium ${ORDINAIS.la[e.grupo]}` : `${ORD[e.grupo]} mistério`;
   }
 
   function desenhar(animar) {
     const l = lingua();
-    const p = passos[i];
-    let titulo, texto, alt = '', mist = '';
-
-    if (p.grupo !== 'inicio' && p.grupo !== 'fim') {
-      const it = M.itens[p.grupo];
-      mist = l === 'la' ? `${it.la} · ${it.pt}` : `${it.pt}`;
-    }
-
-    if (p.o === 'anuncio') {
-      const it = M.itens[p.grupo];
-      titulo = l === 'la' ? it.la : it.pt;
-      texto = l === 'la' ? `${M.la}. ${it.pt}.` : `Contemplamos neste mistério: ${it.pt.charAt(0).toLowerCase() + it.pt.slice(1)}.`;
-      alt = it.ref;
-      mist = l === 'la' ? M.la : M.pt;
-    } else {
-      const o = ORACOES[p.o][l];
-      titulo = o.t;
-      texto = esc(o.x);
-      if (o.r) texto += `<br><span class="resp">℣.</span> ${o.r[0]}<br><span class="resp">℟.</span> ${o.r[1]}`;
-      if (p.o === 'ave') {
-        titulo += ` <span class="muted" style="font-size:24px">${p.n + 1}${p.grupo === 'inicio' ? '/3' : '/10'}</span>`;
-        if (p.grupo === 'inicio') alt = INTENCOES_INICIAIS[l][p.intencao];
-      }
-      if (l === 'la' && !alt) alt = ORACOES[p.o].pt.x;
-    }
-
-    $stage.innerHTML = `
-      <div class="where">${onde(p, l)}</div>
-      ${mist ? `<div class="mystery">${mist}</div>` : ''}
-      <div class="ptitle">${titulo}</div>
-      <div class="ptext">${texto}</div>
-      ${alt ? `<div class="alt">${esc(alt)}</div>` : ''}
+    const e = etapas[i];
+    $etapa.innerHTML = `
+      <p class="where">${nomeEtapa(e, l)} <span class="muted">· ${l === 'la' ? M.la : M.pt}</span></p>
+      ${e.itens.map((it, j) => {
+        if (it.misterio !== undefined) {
+          const m = M.itens[it.misterio];
+          return `<div class="et-mist">
+            <h2>${l === 'la' ? m.la : m.pt}</h2>
+            <p class="muted">${l === 'la' ? m.pt + ' · ' : ''}${m.ref}</p>
+          </div>`;
+        }
+        const o = ORACOES[it.o][l];
+        const n = contagem[`${i}:${j}`] || 0;
+        return `<div class="et-or">
+          <h3>${o.t}${it.vezes ? ` <span class="vezes">× ${it.vezes}</span>` : ''}</h3>
+          ${it.vezes === 3 ? `<p class="cp-int">${INTENCOES_INICIAIS[l].join(' · ')}</p>` : ''}
+          <p class="ptext">${textoOracao(it.o, l)}</p>
+          ${l === 'la' ? `<p class="alt">${esc(ORACOES[it.o].pt.x)}</p>` : ''}
+          ${it.vezes ? `<div class="contador" data-cont="${i}:${j}">
+            <div class="beads">${Array.from({ length: it.vezes }, (_, b) => `<button class="bead${b < n ? ' done' : ''}" data-b="${b}" aria-label="Ave-Maria ${b + 1}"></button>`).join('')}</div>
+            <span class="cnt">${n ? `${n} de ${it.vezes}` : 'Toque nas contas para contar, se quiser'}</span>
+          </div>` : ''}
+        </div>`;
+      }).join('')}
     `;
-    if (animar) { $stage.classList.remove('swap'); void $stage.offsetWidth; $stage.classList.add('swap'); }
-
-    // contas do grupo atual
-    const doGrupo = passos.map((x, k) => ({ ...x, k })).filter((x) => x.grupo === p.grupo && x.conta);
-    $beads.innerHTML = doGrupo.map((x) => `<span class="bead ${x.conta === 'pequena' ? '' : 'big'} ${x.k < i ? 'done' : ''} ${x.k === i ? 'now' : ''}"></span>`).join('');
-
-    $bar.style.width = `${((i + 1) / passos.length) * 100}%`;
+    if (animar) { $etapa.classList.remove('swap'); void $etapa.offsetWidth; $etapa.classList.add('swap'); }
+    $view.querySelectorAll('.seg').forEach((s, k) => { s.classList.toggle('done', k < i); s.classList.toggle('now', k === i); });
     $view.querySelector('#voltar').disabled = i === 0;
-    $view.querySelector('#avancar').textContent = i === passos.length - 1 ? 'Concluir' : 'Avançar';
+    $view.querySelector('#avancar').textContent = i === etapas.length - 1 ? 'Terminei o terço' : `${nomeEtapa(etapas[i + 1], 'pt')} →`;
     store.set('tercoProgresso', { dia: hojeKey(), conjunto, i });
   }
 
-  function avancar() {
-    if (i >= passos.length - 1) return concluir();
-    i++;
-    const p = passos[i];
-    vibrar(p.o === 'anuncio' ? 30 : 6);
+  function ir(k) {
+    if (k < 0 || k >= etapas.length) return;
+    i = k;
+    vibrar(etapas[i].grupo === 'fim' || typeof etapas[i].grupo === 'number' ? 20 : 8);
     desenhar(true);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   }
-  function voltar() { if (i > 0) { i--; desenhar(true); } }
+  function avancar() { if (i >= etapas.length - 1) concluir(); else ir(i + 1); }
 
   function concluir() {
     store.del('tercoProgresso');
     const feitos = store.get('tercosRezados', 0) + 1;
     store.set('tercosRezados', feitos);
     vibrar([20, 60, 20]);
-    $view.querySelector('.pray').innerHTML = `
-      <div class="absolvo" style="margin:auto 0">
+    document.removeEventListener('keydown', teclas);
+    $view.innerHTML = `
+      <div class="absolvo">
         <svg class="cross" viewBox="0 0 54 80"><path d="M27 2v76M6 24h42"/></svg>
         <h2 class="rise" style="--i:3;margin-top:22px">Terço <em>rezado</em>.</h2>
         <p class="lead rise" style="--i:4">${feitos === 1 ? 'O primeiro terço rezado com o Lumen.' : `${feitos} terços rezados com o Lumen.`}</p>
         <div class="rise" style="--i:5;margin-top:26px"><a class="btn block" href="#/">Voltar ao início</a></div>
       </div>`;
-    document.removeEventListener('keydown', teclas);
+    window.scrollTo(0, 0);
   }
 
   function teclas(e) {
     if (!location.hash.startsWith('#/terco/rezar')) return document.removeEventListener('keydown', teclas);
-    if (e.key === ' ' || e.key === 'ArrowRight' || e.key === 'Enter') { e.preventDefault(); avancar(); }
-    if (e.key === 'ArrowLeft') { e.preventDefault(); voltar(); }
+    if (e.key === 'ArrowRight') { e.preventDefault(); avancar(); }
+    if (e.key === 'ArrowLeft') { e.preventDefault(); ir(i - 1); }
   }
 
-  $stage.addEventListener('click', avancar);
-  $view.querySelector('#avancar').addEventListener('click', avancar);
-  $view.querySelector('#voltar').addEventListener('click', voltar);
-  document.addEventListener('keydown', teclas);
-
-  // deslizar para os lados no celular
-  let x0 = null;
-  $stage.addEventListener('touchstart', (e) => { x0 = e.touches[0].clientX; }, { passive: true });
-  $stage.addEventListener('touchend', (e) => {
-    if (x0 === null) return;
-    const dx = e.changedTouches[0].clientX - x0;
-    if (dx > 60) { voltar(); e.preventDefault(); }
-    x0 = null;
+  $etapa.addEventListener('click', (e) => {
+    const b = e.target.closest('[data-b]');
+    if (!b) return;
+    const box = b.closest('[data-cont]');
+    const total = box.querySelectorAll('[data-b]').length;
+    const atual = contagem[box.dataset.cont] || 0;
+    const n = +b.dataset.b + 1 === atual ? atual - 1 : +b.dataset.b + 1;
+    contagem[box.dataset.cont] = n;
+    box.querySelectorAll('[data-b]').forEach((x, k) => x.classList.toggle('done', k < n));
+    box.querySelector('.cnt').textContent = n ? `${n} de ${total}` : 'Toque nas contas para contar, se quiser';
+    vibrar(n === total ? [10, 40, 10] : 6);
   });
+  $view.querySelectorAll('[data-etapa]').forEach((s) => s.addEventListener('click', () => ir(+s.dataset.etapa)));
+  $view.querySelector('#avancar').addEventListener('click', avancar);
+  $view.querySelector('#voltar').addEventListener('click', () => ir(i - 1));
+  document.addEventListener('keydown', teclas);
 
   ligarToggle(() => desenhar(true));
   desenhar(false);
+}
+
+// ---------- Santos e festas ----------
+const SEMANA_MIN = ['domingo', 'segunda-feira', 'terça-feira', 'quarta-feira', 'quinta-feira', 'sexta-feira', 'sábado'];
+
+function telaSantos(param) {
+  delayIdx = 0;
+  const hoje = hojeNum();
+  let sel = deIso(param) ?? hoje;
+  let mes = { y: data(sel).y, m: data(sel).m };
+
+  render(`
+    <p ${r()}><span class="eyebrow">Santos e festas <span class="dot">·</span> calendário litúrgico</span></p>
+    <h1 ${r()}>O ano da <em>Igreja</em></h1>
+    <div ${rc('cal-head')}>
+      <button class="cal-nav" data-mes="-1" aria-label="Mês anterior">${ICON_BACK}</button>
+      <h2 class="cal-mes" aria-live="polite"></h2>
+      <button class="cal-nav" data-mes="1" aria-label="Próximo mês">${ICON_FWD}</button>
+    </div>
+    <div ${rc('cal')}></div>
+    <p ${rc('cal-legenda')}>
+      <span><b class="ls">8</b> solenidade</span><span><b>8</b> festa ou memória</span><span><b class="lm">8</b> dia de semana</span>
+    </p>
+    <section id="dia-sel" ${rc('dia-sel')}></section>
+    <hr ${rc('rule')}>
+    <p ${r()}><span class="eyebrow">Neste mês</span></p>
+    <ul ${rc('rows mes-lista')}></ul>
+  `);
+
+  const $cal = $view.querySelector('.cal');
+  const $dia = $view.querySelector('#dia-sel');
+  const $lista = $view.querySelector('.mes-lista');
+
+  function desenharMes() {
+    const primeiro = Date.UTC(mes.y, mes.m - 1, 1) / 86400000;
+    const ultimo = Date.UTC(mes.y, mes.m, 0) / 86400000;
+    let html = ['D', 'S', 'T', 'Q', 'Q', 'S', 'S'].map((x) => `<span class="wd">${x}</span>`).join('');
+    html += '<span class="cd vazio"></span>'.repeat(data(primeiro).w);
+    const destaques = [];
+    for (let n = primeiro; n <= ultimo; n++) {
+      const D = dia(n);
+      const c = D.destaque;
+      const grau = D.principal ? D.principal.g : c ? 'm' : 'x';
+      if (D.principal) destaques.push(D);
+      html += `<button class="cd r-${grau}${n === hoje ? ' hoje' : ''}${n === sel ? ' sel' : ''}" data-n="${n}" aria-label="${D.d} de ${MESES[D.m - 1]}${c ? ': ' + esc(c.n) : ''}">
+        <span class="cn">${D.d}</span><i class="lc lc-${D.cor}"></i>${c && grau !== 'x' ? `<span class="cs">${esc(c.n.split(',')[0])}</span>` : ''}</button>`;
+    }
+    $cal.innerHTML = html;
+    $view.querySelector('.cal-mes').innerHTML = `${MESES[mes.m - 1]} <em>${mes.y}</em>`;
+    $lista.innerHTML = destaques.length ? destaques.map((D) => `
+      <li><button class="row" data-n="${D.n}">
+        <span class="num">${D.d}</span>
+        <span class="body"><span class="title">${D.principal.n}</span><span class="sub">${GRAUS[D.principal.g]} · ${SEMANA_MIN[D.w]}${D.principal.br ? ' · próprio do Brasil' : ''}</span></span>
+        <i class="lc lc-${D.principal.c}"></i>
+      </button></li>`).join('') : '<li class="muted" style="padding:16px 0">Nenhuma festa ou memória obrigatória neste mês.</li>';
+  }
+
+  function desenharDia(animar) {
+    const D = dia(sel);
+    const c = D.destaque;
+    const outros = D.outros.filter((o) => o.n !== (c && c.n) || o.nota);
+    const motivo = (o) => o.nota || (o.g === 'c' ? 'Pode ser lembrada na oração do dia.' : o.impedida ? (D.w === 0 ? 'Neste ano cai num domingo e não é celebrada.' : 'Neste ano não é celebrada, por coincidir com uma celebração maior.') : '');
+    const tempoMin = D.tempo.replace(/^Tempo/, 'tempo');
+    $dia.innerHTML = `
+      <p class="dia-data">${SEMANA_MIN[D.w]}, ${D.d} de ${MESES[D.m - 1]} de ${D.y}${sel === hoje ? ' <span class="dot">·</span> hoje' : ''}</p>
+      <p class="lit-line"><span class="lc lc-${D.cor}"></span>${D.titulo}</p>
+      <p class="muted small" style="margin-top:4px">${D.tempo} · cor ${CORES[D.cor]} · Ano ${D.ano}, ${D.anoPar ? 'ano par' : 'ano ímpar'}</p>
+      ${c ? `
+        <p class="eyebrow grau">${GRAUS[c.g]}${c.br ? ' · próprio do Brasil' : ''}</p>
+        <h2>${c.n}</h2>
+        <p class="lead">${c.b}</p>
+        ${c.nota ? `<p class="muted small" style="margin-top:10px">${c.nota}</p>` : ''}` : `
+        <p class="eyebrow grau">Dia de semana</p>
+        <h2>${D.tempo}</h2>
+        <p class="lead">Nenhum santo é celebrado neste dia no calendário geral. A liturgia segue o ${tempoMin}.</p>`}
+      ${outros.length ? `
+        <p class="eyebrow" style="margin-top:26px">Também neste dia</p>
+        <ul class="tambem">${outros.map((o) => `<li>
+          <span class="t">${o.n}</span>
+          <span class="g">${GRAUS[o.g]}${o.br ? ' · próprio do Brasil' : ''}</span>
+          <span class="b">${o.b}</span>
+          ${motivo(o) ? `<span class="nt">${motivo(o)}</span>` : ''}
+        </li>`).join('')}</ul>` : ''}
+      ${sel !== hoje ? `<button class="btn ghost" id="ir-hoje" style="margin-top:22px">Voltar para hoje</button>` : ''}
+    `;
+    if (animar) { $dia.classList.remove('swap'); void $dia.offsetWidth; $dia.classList.add('swap'); }
+  }
+
+  function escolher(n) {
+    sel = n;
+    const x = data(n);
+    mes = { y: x.y, m: x.m };
+    desenharMes();
+    desenharDia(true);
+    history.replaceState(null, '', n === hoje ? '#/santos' : `#/santos/${iso(n)}`);
+    vibrar(6);
+    const topo = $dia.getBoundingClientRect().top;
+    if (topo > window.innerHeight * 0.55 || topo < 0) $dia.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+
+  // ouvintes nos blocos da tela (o <main> é reaproveitado entre telas)
+  const clique = (e) => {
+    if (e.target.closest('#ir-hoje')) return escolher(hoje);
+    const alvo = e.target.closest('[data-n]');
+    if (alvo) return escolher(+alvo.dataset.n);
+    const nav = e.target.closest('[data-mes]');
+    if (nav) {
+      const k = mes.y * 12 + (mes.m - 1) + +nav.dataset.mes;
+      mes = { y: Math.floor(k / 12), m: (k % 12) + 1 };
+      desenharMes();
+      $cal.classList.remove('swap'); void $cal.offsetWidth; $cal.classList.add('swap');
+    }
+  };
+  [$cal, $dia, $lista, $view.querySelector('.cal-head')].forEach((el) => el.addEventListener('click', clique));
+
+  desenharMes();
+  desenharDia(false);
 }
 
 // ---------- Mais ----------
@@ -521,7 +717,7 @@ function telaMais() {
   render(`
     <p ${r()}><span class="eyebrow">Ajustes</span></p>
     <h1 ${r()}>Lu<em>men</em></h1>
-    <p ${rc('lead')}>Exame de consciência e terço, na palma da mão.</p>
+    <p ${rc('lead')}>Exame de consciência, terço e o calendário dos santos, na palma da mão.</p>
     <hr ${rc('rule')}>
     <div ${rc('setting')}>
       <span class="lbl">Aparência</span>
@@ -550,9 +746,10 @@ function telaMais() {
     </div>
     <div ${rc('setting')}>
       <span class="lbl">Em breve</span>
-      <p class="muted">Evangelho do dia, calendário dos santos e das festas da Igreja, o jogo diário do santo, e a Cela, uma pergunta de exame por noite.</p>
+      <p class="muted">Evangelho do dia, o jogo diário do santo, e a Cela, uma pergunta de exame por noite.</p>
     </div>
-    <p ${rc('muted small')} style="margin-top:24px">Os exames foram escritos com base no Catecismo da Igreja Católica. Eles ajudam a preparar a confissão, mas não substituem a orientação de um sacerdote.</p>
+    <p ${rc('muted small')} style="margin-top:24px">O calendário segue o Calendário Romano Geral e o próprio do Brasil, com as solenidades transferidas para o domingo como é costume aqui.</p>
+    <p ${rc('muted small')}>Os exames foram escritos com base no Catecismo da Igreja Católica. Eles ajudam a preparar a confissão, mas não substituem a orientação de um sacerdote.</p>
   `);
 
   $view.querySelectorAll('[data-tema]').forEach((b) => b.addEventListener('click', () => {
@@ -595,6 +792,7 @@ function rota() {
   else if (a === 'terco' && b === 'rezar') { tab = 'terco'; telaRezar(c); }
   else if (a === 'terco' && b === 'aprender') { tab = 'terco'; telaAprender(); }
   else if (a === 'terco') { tab = 'terco'; telaTerco(); }
+  else if (a === 'santos') { tab = 'santos'; telaSantos(b); }
   else if (a === 'mais') { tab = 'mais'; telaMais(); }
   else telaInicio();
 
