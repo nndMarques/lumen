@@ -1,5 +1,5 @@
 import { EXAMES, ESTADOS, PASSOS, CONTRICAO } from './data/exames.js';
-import { ORACOES, MISTERIOS, POR_DIA, ORDINAIS, INTENCOES_INICIAIS } from './data/terco.js';
+import { ORACOES, MISTERIOS, POR_DIA, INTENCOES_INICIAIS, LINGUAS, PARTES } from './data/terco.js';
 import { rosarioSVG, ordem, oracoesDa, ORD } from './rosario.js';
 import { dia, data, hojeNum, iso, deIso, GRAUS, CORES } from './liturgia.js';
 
@@ -31,16 +31,6 @@ const ICON_TICK = '<svg viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5"/></
 
 const DIAS = ['domingo', 'segunda-feira', 'terça-feira', 'quarta-feira', 'quinta-feira', 'sexta-feira', 'sábado'];
 const MESES = ['janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho', 'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro'];
-
-const FRASES = [
-  { x: 'Fizeste-nos para ti, Senhor, e inquieto está o nosso coração enquanto não repousa em ti.', a: 'Santo Agostinho · Confissões I, 1' },
-  { x: 'Fica na tua cela, e a tua cela te ensinará tudo.', a: 'Abba Moisés · Padres do Deserto' },
-  { x: 'Nada te perturbe, nada te espante. Quem a Deus tem nada lhe falta. Só Deus basta.', a: 'Santa Teresa de Ávila' },
-  { x: 'A glória de Deus é o homem vivo.', a: 'Santo Irineu de Lião' },
-  { x: 'Tarde te amei, ó beleza tão antiga e tão nova, tarde te amei!', a: 'Santo Agostinho · Confissões X, 27' },
-  { x: 'Rezem o terço todos os dias.', a: 'Nossa Senhora em Fátima · 1917' },
-  { x: 'Senhor, que eu veja!', a: 'O cego de Jericó · Lc 18, 41' },
-];
 
 // ---------- Utilidades de tela ----------
 let delayIdx = 0;
@@ -100,7 +90,6 @@ function telaInicio() {
   const d = new Date();
   const conj = POR_DIA[d.getDay()];
   const M = MISTERIOS[conj];
-  const frase = FRASES[(d.getFullYear() * 400 + d.getMonth() * 31 + d.getDate()) % FRASES.length];
   const dias = diasDesde(store.get('ultimaConfissao', null));
   const n = totalMarcados();
   const L = dia(hojeNum());
@@ -121,26 +110,25 @@ function telaInicio() {
     </div>
     <p ${rc('lit-line')}><span class="lc lc-${L.cor}"></span>${L.titulo}</p>
     <hr ${rc('rule')}>
-    <blockquote ${rc('quote')}>“${frase.x}”<cite>${frase.a}</cite></blockquote>
-    <hr ${rc('rule')}>
-    ${santo ? `
-      <p ${r()}><span class="eyebrow">Hoje a Igreja celebra <span class="dot">·</span> ${GRAUS[santo.g]}</span></p>
-      <h2 ${r()}>${santo.n}</h2>
-      <p ${rc('muted')} style="margin-top:10px">${santo.b}</p>
-      <ul ${rc('rows')} style="margin-top:14px"><li><a class="row" href="#/santos"><span class="body"><span class="title">Calendário dos santos</span><span class="sub">Os santos e as festas de cada dia do ano</span></span>${ICON_ARROW}</a></li></ul>
-      <hr ${rc('rule')}>` : ''}
-    <p ${r()}><span class="eyebrow">Terço de hoje</span></p>
-    <h2 ${r()}>${M.pt.replace('Mistérios ', 'Mistérios <em>')}</em></h2>
-    <ol ${rc('mystery-list')}>${M.itens.map((it) => `<li>${it.pt}</li>`).join('')}</ol>
-    <div ${r()} style="margin-top:18px"><a class="btn solid block" href="#/terco/rezar/${conj}">Rezar agora</a></div>
-    ${rezadosHoje().length ? `<p ${rc('feito-hoje')}>${ICON_TICK} Você já rezou o terço hoje.</p>` : ''}
-    <hr ${rc('rule')}>
     <p ${r()}><span class="eyebrow">Confissão</span></p>
     <div ${r()}>${conf}</div>
     <ul ${rc('rows')} style="margin-top:18px">
       <li><a class="row" href="#/exame"><span class="body"><span class="title">Fazer o exame de consciência</span><span class="sub">Quatro exames, por estado de vida</span></span>${ICON_ARROW}</a></li>
       ${n ? `<li><a class="row" href="#/lista"><span class="body"><span class="title">Minha lista</span><span class="sub">${n} ${n === 1 ? 'item marcado' : 'itens marcados'}, só no seu aparelho</span></span>${ICON_ARROW}</a></li>` : ''}
     </ul>
+    <hr ${rc('rule')}>
+    <p ${r()}><span class="eyebrow">Terço de hoje</span></p>
+    <h2 ${r()}>${M.pt.replace('Mistérios ', 'Mistérios <em>')}</em></h2>
+    <ol ${rc('mystery-list')}>${M.itens.map((it) => `<li>${it.pt}</li>`).join('')}</ol>
+    <div ${r()} style="margin-top:18px"><a class="btn solid block" href="#/terco/rezar/${conj}">Rezar agora</a></div>
+    ${rezadosHoje().length ? `<p ${rc('feito-hoje')}>${ICON_TICK} Você já rezou o terço hoje.</p>` : ''}
+    <hr ${rc('rule')}>
+    ${santo ? `
+      <p ${r()}><span class="eyebrow">Hoje a Igreja celebra <span class="dot">·</span> ${GRAUS[santo.g]}</span></p>
+      <h2 ${r()}>${santo.n}</h2>
+      <p ${rc('muted')} style="margin-top:10px">${santo.b}</p>` : `
+      <p ${r()}><span class="eyebrow">Santos e festas</span></p>`}
+    <ul ${rc('rows')} style="margin-top:14px"><li><a class="row" href="#/santos"><span class="body"><span class="title">Calendário dos santos</span><span class="sub">Os santos e as festas de cada dia do ano</span></span>${ICON_ARROW}</a></li></ul>
   `);
 }
 
@@ -338,13 +326,23 @@ function telaComo() {
 }
 
 // ---------- Terço ----------
-const lingua = () => store.get('lingua', 'pt');
+// Línguas da oração: a principal e a secundária são escolhidas em Ajustes; no terço, alterna-se entre as duas.
+function linguas() {
+  const l1 = store.get('lingua1', 'pt');
+  let l2 = store.get('lingua2', 'la');
+  if (l2 === l1) l2 = l1 === 'la' ? 'pt' : 'la';
+  return [l1, l2];
+}
+function lingua() {
+  const [l1, l2] = linguas();
+  const l = store.get('lingua', l1);
+  return l === l1 || l === l2 ? l : l1;
+}
 
 function langToggle() {
   const l = lingua();
-  return `<div class="lang-toggle" role="group" aria-label="Língua">
-    <button data-lang="pt" aria-pressed="${l === 'pt'}">PT</button>
-    <button data-lang="la" aria-pressed="${l === 'la'}">LATIM</button>
+  return `<div class="lang-toggle" role="group" aria-label="Língua da oração">
+    ${linguas().map((x) => `<button data-lang="${x}" aria-pressed="${l === x}">${LINGUAS[x].curto}</button>`).join('')}
   </div>`;
 }
 function ligarToggle(onChange) {
@@ -471,8 +469,7 @@ function telaTerco() {
   render(`
     <p ${r()}><span class="eyebrow">Santo Terço</span></p>
     <h1 ${r()}>Rezar o <em>terço</em></h1>
-    <p ${rc('lead')}>Mistério por mistério, em português ou em latim, no seu ritmo.</p>
-    <div ${r()} style="margin-top:20px">${langToggle()}</div>
+    <p ${rc('lead')}>Mistério por mistério, no seu ritmo.</p>
     ${continuar ? `<div ${r()} style="margin-top:22px"><a class="btn solid block" href="#/terco/rezar/${prog.conjunto}">Continuar de onde parei</a></div>` : ''}
     <hr ${rc('rule')}>
     <p ${r()}><span class="eyebrow">Sua constância</span></p>
@@ -499,8 +496,6 @@ function telaTerco() {
       <li><a class="row" href="#/terco/aprender"><span class="body"><span class="title">Aprender a rezar o terço</span><span class="sub">Como funciona e todas as orações, lado a lado</span></span>${ICON_ARROW}</a></li>
     </ul>
   `);
-  ligarToggle(() => {});
-
   const $const = $view.querySelector('.constancia');
 
   const marcarFeitos = () => {
@@ -599,7 +594,7 @@ function telaAprender() {
       <div class="cp-fundo" aria-hidden="true"></div>
       <aside class="conta-painel" aria-live="polite">
         <div class="cp-top"><span class="eyebrow cp-onde">Toque numa conta</span><button class="cp-x" aria-label="Fechar">×</button></div>
-        <div class="cp-corpo"><p class="muted">Cada conta do desenho mostra o que se reza nela, em português e em latim.</p></div>
+        <div class="cp-corpo"><p class="muted">Cada conta do desenho mostra o que se reza nela, nas suas duas línguas de oração.</p></div>
         <div class="cp-nav"><button class="btn ghost" data-passo="-1">Anterior</button><button class="btn solid" data-passo="1">Próxima</button></div>
       </aside>
     </div>
@@ -614,23 +609,24 @@ function telaAprender() {
     atual = id;
     const info = oracoesDa(id, conjunto);
     const M = MISTERIOS[conjunto];
+    const [l1, l2] = linguas();
     $svg.querySelectorAll('.conta').forEach((g) => g.classList.toggle('sel', g.dataset.conta === id));
     $painel.querySelector('.cp-onde').textContent = info.onde;
     $painel.querySelector('.cp-corpo').innerHTML = info.itens.map((it) => {
       if (it.misterio !== undefined) return `
         <div class="cp-mist">
           <p class="eyebrow">${ORD[it.misterio]} mistério ${M.pt.replace('Mistérios ', '').toLowerCase().replace(/s$/, '')}</p>
-          <h3>${it.pt}</h3>
-          <p class="la">${it.la} · ${it.ref}</p>
+          <h3>${it[l1]}</h3>
+          <p class="la">${it[l2]} · ${it.ref}</p>
         </div>`;
       const o = ORACOES[it.o];
       return `<div class="cp-or">
-        <h3>${o.pt.t} <span class="muted">· ${o.la.t}</span></h3>
-        ${it.intencao !== undefined ? `<p class="cp-int">${INTENCOES_INICIAIS.pt[it.intencao]}</p>` : ''}
-        <p class="pt">${textoOracao(it.o, 'pt')}</p>
-        <p class="la">${textoOracao(it.o, 'la')}</p>
+        <h3>${o[l1].t} <span class="muted">· ${o[l2].t}</span></h3>
+        ${it.intencao !== undefined ? `<p class="cp-int">${INTENCOES_INICIAIS[l1][it.intencao]}</p>` : ''}
+        <p class="pt">${textoOracao(it.o, l1)}</p>
+        <p class="la">${textoOracao(it.o, l2)}</p>
       </div>`;
-    }).join('') + (info.medita ? `<p class="cp-int">Meditando: ${info.medita.pt}</p>` : '');
+    }).join('') + (info.medita ? `<p class="cp-int">Meditando: ${info.medita[l1]}</p>` : '');
     $painel.querySelector('.cp-corpo').scrollTop = 0;
     const i = sequencia.indexOf(id);
     $painel.querySelector('[data-passo="-1"]').disabled = i === 0;
@@ -708,25 +704,26 @@ function telaRezar(conjunto) {
   const $etapa = $view.querySelector('.etapa');
 
   function nomeEtapa(e, l) {
-    if (e.grupo === 'inicio') return l === 'la' ? 'Initium' : 'Início';
-    if (e.grupo === 'fim') return l === 'la' ? 'Finis' : 'Conclusão';
-    if (l === 'la') return `Mysterium ${ORDINAIS.la[e.grupo]}`;
-    return rosario ? `${ORD[e.grupo]} ${MISTERIOS[e.conj].pt.replace('Mistérios ', '').toLowerCase().replace(/s$/, '')}` : `${ORD[e.grupo]} mistério`;
+    if (e.grupo === 'inicio') return PARTES.inicio[l];
+    if (e.grupo === 'fim') return PARTES.fim[l];
+    if (l === 'pt' && rosario) return `${ORD[e.grupo]} ${MISTERIOS[e.conj].pt.replace('Mistérios ', '').toLowerCase().replace(/s$/, '')}`;
+    return PARTES.misterio[l](e.grupo);
   }
 
   function desenhar(animar) {
     const l = lingua();
+    const [l1] = linguas();
     const e = etapas[i];
     const M = MISTERIOS[e.conj];
-    const sub = rosario && typeof e.grupo !== 'number' ? (l === 'la' ? 'Rosarium integrum' : 'Rosário completo') : l === 'la' ? M.la : M.pt;
+    const sub = rosario && typeof e.grupo !== 'number' ? PARTES.rosario[l] : M[l];
     $etapa.innerHTML = `
       <p class="where">${nomeEtapa(e, l)} <span class="muted">· ${sub}</span></p>
       ${e.itens.map((it, j) => {
         if (it.misterio !== undefined) {
           const m = M.itens[it.misterio];
           return `<div class="et-mist">
-            <h2>${l === 'la' ? m.la : m.pt}</h2>
-            <p class="muted">${l === 'la' ? m.pt + ' · ' : ''}${m.ref}</p>
+            <h2>${m[l]}</h2>
+            <p class="muted">${l !== l1 ? m[l1] + ' · ' : ''}${m.ref}</p>
           </div>`;
         }
         const o = ORACOES[it.o][l];
@@ -735,7 +732,7 @@ function telaRezar(conjunto) {
           <h3>${o.t}${it.vezes ? ` <span class="vezes">× ${it.vezes}</span>` : ''}</h3>
           ${it.vezes === 3 ? `<p class="cp-int">${INTENCOES_INICIAIS[l].join(' · ')}</p>` : ''}
           <p class="ptext">${textoOracao(it.o, l)}</p>
-          ${l === 'la' ? `<p class="alt">${esc(ORACOES[it.o].pt.x)}</p>` : ''}
+          ${l !== l1 ? `<p class="alt">${esc(ORACOES[it.o][l1].x)}</p>` : ''}
           ${it.vezes ? `<div class="contador" data-cont="${i}:${j}">
             <div class="beads">${Array.from({ length: it.vezes }, (_, b) => `<button class="bead${b < n ? ' done' : ''}" data-b="${b}" aria-label="Ave-Maria ${b + 1}"></button>`).join('')}</div>
             <span class="cnt">${n ? `${n} de ${it.vezes}` : 'Toque nas contas para contar, se quiser'}</span>
@@ -1045,8 +1042,19 @@ function telaMais() {
       </div>
     </div>
     <div ${rc('setting')}>
-      <span class="lbl">Língua do terço</span>
-      ${langToggle()}
+      <span class="lbl">Língua do aplicativo</span>
+      <div class="choices">
+        <button class="choice" aria-pressed="true">Português</button>
+        <button class="choice" disabled>Inglês · em breve</button>
+      </div>
+    </div>
+    <div ${rc('setting')}>
+      <span class="lbl">Línguas da oração</span>
+      <p class="muted small">A principal aparece primeiro. Dentro do terço, você alterna entre as duas.</p>
+      <p class="eyebrow" style="margin-top:14px">Principal</p>
+      <div class="choices">${Object.entries(LINGUAS).map(([k, v]) => `<button class="choice" data-l1="${k}">${v.nome}</button>`).join('')}</div>
+      <p class="eyebrow" style="margin-top:16px">Secundária</p>
+      <div class="choices">${Object.entries(LINGUAS).map(([k, v]) => `<button class="choice" data-l2="${k}">${v.nome}</button>`).join('')}</div>
     </div>
     <div ${rc('setting')}>
       <span class="lbl">Seus números</span>
@@ -1074,7 +1082,27 @@ function telaMais() {
     aplicarTema(b.dataset.tema);
     $view.querySelectorAll('[data-tema]').forEach((x) => x.setAttribute('aria-pressed', x === b));
   }));
-  ligarToggle(() => toast('Língua do terço alterada'));
+  const marcarLinguas = () => {
+    const [l1, l2] = linguas();
+    $view.querySelectorAll('[data-l1]').forEach((b) => b.setAttribute('aria-pressed', b.dataset.l1 === l1));
+    $view.querySelectorAll('[data-l2]').forEach((b) => { b.setAttribute('aria-pressed', b.dataset.l2 === l2); b.disabled = b.dataset.l2 === l1; });
+  };
+  marcarLinguas();
+  $view.querySelectorAll('[data-l1]').forEach((b) => b.addEventListener('click', () => {
+    const [l1, l2] = linguas();
+    const novo = b.dataset.l1;
+    if (novo === l2) store.set('lingua2', l1); // trocar de lugar
+    store.set('lingua1', novo);
+    store.set('lingua', novo);
+    marcarLinguas();
+    toast(`Oração em ${LINGUAS[novo].nome.toLowerCase()} e ${LINGUAS[linguas()[1]].nome.toLowerCase()}`);
+  }));
+  $view.querySelectorAll('[data-l2]').forEach((b) => b.addEventListener('click', () => {
+    store.set('lingua2', b.dataset.l2);
+    marcarLinguas();
+    const [l1, l2] = linguas();
+    toast(`Oração em ${LINGUAS[l1].nome.toLowerCase()} e ${LINGUAS[l2].nome.toLowerCase()}`);
+  }));
 
   $view.querySelector('#apagar').addEventListener('click', () => {
     if (!confirm('Apagar a lista, as anotações, a data da última confissão e o progresso do terço?')) return;

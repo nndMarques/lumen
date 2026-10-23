@@ -199,6 +199,7 @@ p { margin: 0 0 12px; }
 }
 .choice:active { transform: scale(0.96); }
 .choice[aria-pressed="true"] { background: var(--ink); color: var(--bg); border-color: var(--ink); }
+.choice[disabled] { opacity: 0.35; cursor: default; }
 
 /* ---------- Exame: perguntas ---------- */
 .section-head {

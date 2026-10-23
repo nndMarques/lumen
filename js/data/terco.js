@@ -87,22 +87,86 @@ export const INTENCOES_INICIAIS = {
   la: ['pro augmento fidei', 'pro augmento spei', 'pro augmento caritatis'],
 };
 
-// Monta a sequência completa do terço como uma lista de passos.
-export function montarTerco(conjunto) {
-  const s = [];
-  s.push({ o: 'sinal', grupo: 'inicio' });
-  s.push({ o: 'credo', grupo: 'inicio', conta: 'cruz' });
-  s.push({ o: 'pai', grupo: 'inicio', conta: 'grande' });
-  for (let i = 0; i < 3; i++) s.push({ o: 'ave', grupo: 'inicio', conta: 'pequena', n: i, intencao: i });
-  s.push({ o: 'gloria', grupo: 'inicio' });
-  for (let m = 0; m < 5; m++) {
-    s.push({ o: 'anuncio', grupo: m, conjunto });
-    s.push({ o: 'pai', grupo: m, conta: 'grande' });
-    for (let i = 0; i < 10; i++) s.push({ o: 'ave', grupo: m, conta: 'pequena', n: i });
-    s.push({ o: 'gloria', grupo: m });
-    s.push({ o: 'fatima', grupo: m });
-  }
-  s.push({ o: 'salve', grupo: 'fim' });
-  s.push({ o: 'sinal', grupo: 'fim' });
-  return s;
-}
+// Línguas da oração. A pessoa escolhe uma principal e uma secundária em Ajustes.
+export const LINGUAS = {
+  pt: { nome: 'Português', curto: 'PT' },
+  la: { nome: 'Latim', curto: 'LATIM' },
+  en: { nome: 'Inglês', curto: 'INGLÊS' },
+  it: { nome: 'Italiano', curto: 'ITALIANO' },
+};
+
+// Inglês e italiano: as fórmulas tradicionais de cada oração.
+const EN = {
+  sinal: { t: 'Sign of the Cross', x: 'In the name of the Father, and of the Son, and of the Holy Spirit. Amen.' },
+  credo: { t: 'Apostles’ Creed', x: 'I believe in God, the Father almighty, Creator of heaven and earth; and in Jesus Christ, his only Son, our Lord, who was conceived by the Holy Spirit, born of the Virgin Mary, suffered under Pontius Pilate, was crucified, died and was buried. He descended into hell; on the third day he rose again from the dead; he ascended into heaven, and is seated at the right hand of God the Father almighty; from thence he shall come to judge the living and the dead. I believe in the Holy Spirit, the holy Catholic Church, the communion of saints, the forgiveness of sins, the resurrection of the body, and life everlasting. Amen.' },
+  pai: { t: 'Our Father', x: 'Our Father, who art in heaven, hallowed be thy name; thy kingdom come, thy will be done on earth as it is in heaven. Give us this day our daily bread, and forgive us our trespasses, as we forgive those who trespass against us; and lead us not into temptation, but deliver us from evil. Amen.' },
+  ave: { t: 'Hail Mary', x: 'Hail Mary, full of grace, the Lord is with thee. Blessed art thou amongst women, and blessed is the fruit of thy womb, Jesus. Holy Mary, Mother of God, pray for us sinners, now and at the hour of our death. Amen.' },
+  gloria: { t: 'Glory Be', x: 'Glory be to the Father, and to the Son, and to the Holy Spirit. As it was in the beginning, is now, and ever shall be, world without end. Amen.' },
+  fatima: { t: 'O my Jesus', x: 'O my Jesus, forgive us our sins, save us from the fires of hell; lead all souls to heaven, especially those in most need of thy mercy.' },
+  salve: { t: 'Hail, Holy Queen', x: 'Hail, holy Queen, Mother of mercy, our life, our sweetness and our hope. To thee do we cry, poor banished children of Eve. To thee do we send up our sighs, mourning and weeping in this valley of tears. Turn then, most gracious advocate, thine eyes of mercy toward us, and after this our exile show unto us the blessed fruit of thy womb, Jesus. O clement, O loving, O sweet Virgin Mary.', r: ['Pray for us, O holy Mother of God.', 'That we may be made worthy of the promises of Christ.'] },
+};
+
+const IT = {
+  sinal: { t: 'Segno della croce', x: 'Nel nome del Padre e del Figlio e dello Spirito Santo. Amen.' },
+  credo: { t: 'Credo', x: 'Io credo in Dio, Padre onnipotente, creatore del cielo e della terra; e in Gesù Cristo, suo unico Figlio, nostro Signore, il quale fu concepito di Spirito Santo, nacque da Maria Vergine, patì sotto Ponzio Pilato, fu crocifisso, morì e fu sepolto; discese agli inferi; il terzo giorno risuscitò da morte; salì al cielo, siede alla destra di Dio Padre onnipotente; di là verrà a giudicare i vivi e i morti. Credo nello Spirito Santo, la santa Chiesa cattolica, la comunione dei santi, la remissione dei peccati, la risurrezione della carne, la vita eterna. Amen.' },
+  pai: { t: 'Padre nostro', x: 'Padre nostro, che sei nei cieli, sia santificato il tuo nome, venga il tuo regno, sia fatta la tua volontà, come in cielo così in terra. Dacci oggi il nostro pane quotidiano, e rimetti a noi i nostri debiti come anche noi li rimettiamo ai nostri debitori, e non abbandonarci alla tentazione, ma liberaci dal male. Amen.' },
+  ave: { t: 'Ave Maria', x: 'Ave, o Maria, piena di grazia, il Signore è con te. Tu sei benedetta fra le donne e benedetto è il frutto del tuo seno, Gesù. Santa Maria, Madre di Dio, prega per noi peccatori, adesso e nell’ora della nostra morte. Amen.' },
+  gloria: { t: 'Gloria al Padre', x: 'Gloria al Padre e al Figlio e allo Spirito Santo. Come era nel principio, e ora e sempre, nei secoli dei secoli. Amen.' },
+  fatima: { t: 'O Gesù mio', x: 'O Gesù mio, perdona le nostre colpe, preservaci dal fuoco dell’inferno, porta in cielo tutte le anime, specialmente le più bisognose della tua misericordia.' },
+  salve: { t: 'Salve Regina', x: 'Salve, Regina, madre di misericordia, vita, dolcezza e speranza nostra, salve. A te ricorriamo, esuli figli di Eva; a te sospiriamo, gementi e piangenti in questa valle di lacrime. Orsù dunque, avvocata nostra, rivolgi a noi gli occhi tuoi misericordiosi. E mostraci, dopo questo esilio, Gesù, il frutto benedetto del tuo seno. O clemente, o pia, o dolce Vergine Maria.', r: ['Prega per noi, santa Madre di Dio.', 'E saremo degni delle promesse di Cristo.'] },
+};
+Object.keys(ORACOES).forEach((k) => { ORACOES[k].en = EN[k]; ORACOES[k].it = IT[k]; });
+
+const MIST_EN_IT = {
+  gozosos: ['Joyful Mysteries', 'Misteri gaudiosi', [
+    ['The Annunciation', 'L’annunciazione dell’angelo a Maria'],
+    ['The Visitation', 'La visita di Maria a santa Elisabetta'],
+    ['The Nativity of Jesus', 'La nascita di Gesù a Betlemme'],
+    ['The Presentation in the Temple', 'La presentazione di Gesù al Tempio'],
+    ['The Finding in the Temple', 'Il ritrovamento di Gesù nel Tempio'],
+  ]],
+  luminosos: ['Luminous Mysteries', 'Misteri luminosi', [
+    ['The Baptism in the Jordan', 'Il battesimo di Gesù al Giordano'],
+    ['The Wedding at Cana', 'Le nozze di Cana'],
+    ['The Proclamation of the Kingdom', 'L’annuncio del Regno di Dio'],
+    ['The Transfiguration', 'La trasfigurazione'],
+    ['The Institution of the Eucharist', 'L’istituzione dell’Eucaristia'],
+  ]],
+  dolorosos: ['Sorrowful Mysteries', 'Misteri dolorosi', [
+    ['The Agony in the Garden', 'L’agonia di Gesù nell’orto'],
+    ['The Scourging at the Pillar', 'La flagellazione di Gesù'],
+    ['The Crowning with Thorns', 'L’incoronazione di spine'],
+    ['The Carrying of the Cross', 'Gesù porta la croce al Calvario'],
+    ['The Crucifixion and Death of Jesus', 'La crocifissione e morte di Gesù'],
+  ]],
+  gloriosos: ['Glorious Mysteries', 'Misteri gloriosi', [
+    ['The Resurrection', 'La risurrezione di Gesù'],
+    ['The Ascension', 'L’ascensione di Gesù al cielo'],
+    ['The Descent of the Holy Spirit', 'La discesa dello Spirito Santo'],
+    ['The Assumption of Mary', 'L’assunzione di Maria al cielo'],
+    ['The Coronation of Mary', 'L’incoronazione di Maria Regina del cielo e della terra'],
+  ]],
+};
+Object.entries(MIST_EN_IT).forEach(([c, [en, it, itens]]) => {
+  MISTERIOS[c].en = en;
+  MISTERIOS[c].it = it;
+  itens.forEach(([e, i], k) => { MISTERIOS[c].itens[k].en = e; MISTERIOS[c].itens[k].it = i; });
+});
+
+ORDINAIS.en = ['First', 'Second', 'Third', 'Fourth', 'Fifth'];
+ORDINAIS.it = ['Primo', 'Secondo', 'Terzo', 'Quarto', 'Quinto'];
+INTENCOES_INICIAIS.en = ['for an increase of faith', 'for an increase of hope', 'for an increase of charity'];
+INTENCOES_INICIAIS.it = ['per l’aumento della fede', 'per l’aumento della speranza', 'per l’aumento della carità'];
+
+// Nomes das partes do terço em cada língua
+export const PARTES = {
+  inicio: { pt: 'Início', la: 'Initium', en: 'Opening', it: 'Inizio' },
+  fim: { pt: 'Conclusão', la: 'Finis', en: 'Closing', it: 'Conclusione' },
+  rosario: { pt: 'Rosário completo', la: 'Rosarium integrum', en: 'Complete Rosary', it: 'Rosario completo' },
+  misterio: {
+    pt: (k) => `${['1º', '2º', '3º', '4º', '5º'][k]} mistério`,
+    la: (k) => `Mysterium ${ORDINAIS.la[k]}`,
+    en: (k) => `${ORDINAIS.en[k]} Mystery`,
+    it: (k) => `${ORDINAIS.it[k]} mistero`,
+  },
+};
