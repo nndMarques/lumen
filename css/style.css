@@ -837,3 +837,6 @@ h3 { font-family: var(--sans); font-weight: 600; font-size: 20px; line-height: 1
 @media (min-width: 900px) {
   .pray-stage .ptext, .et-or .ptext { font-size: 20px; }
 }
+
+.erro { color: var(--text-danger, #b3261e); font-size: 14px; margin: 10px 0 0; }
+.setting b { font-weight: 600; }

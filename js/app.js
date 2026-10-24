@@ -2,19 +2,24 @@ import { EXAMES, ESTADOS, PASSOS, CONTRICAO } from './data/exames.js';
 import { ORACOES, MISTERIOS, POR_DIA, INTENCOES_INICIAIS, LINGUAS, PARTES } from './data/terco.js';
 import { rosarioSVG, ordem, oracoesDa, ORD } from './rosario.js';
 import { dia, data, hojeNum, iso, deIso, GRAUS, CORES, leiturasDo } from './liturgia.js';
+import { contaDisponivel, pushDisponivel, ligarConta, aoMudar, estado as estadoConta, enviarCodigo, confirmarCodigo, sair as sairConta, apagarConta, criarCofre, abrirCofre, esquecerCofre, sincronizar, ativarPush, desativarPush, atualizarHoraPush, mensagemDeErro } from './conta.js';
 
 // ---------- Armazenamento local (nada sai do aparelho) ----------
 const temaAtual = () => { try { return localStorage.getItem('lumen.theme') || 'auto'; } catch (e) { return 'auto'; } };
 
 const store = {
+  setQuieto(k, v) { try { localStorage.setItem('lumen.' + k, JSON.stringify(v)); } catch (e) {} },
+  delQuieto(k) { try { localStorage.removeItem('lumen.' + k); } catch (e) {} },
   get(k, d) {
     try { const v = localStorage.getItem('lumen.' + k); return v === null ? d : JSON.parse(v); } catch (e) { return d; }
   },
   set(k, v) {
     try { localStorage.setItem('lumen.' + k, JSON.stringify(v)); } catch (e) {}
+    aoMudar(k);
   },
   del(k) {
     try { localStorage.removeItem('lumen.' + k); } catch (e) {}
+    aoMudar(k);
   },
 };
 
@@ -1308,6 +1313,92 @@ async function cardSanto(n) {
   if (r === 'baixado') toast('Card salvo no seu aparelho');
 }
 
+// ---------- Conta (Ajustes) ----------
+function renderConta() {
+  const $box = $view.querySelector('#conta-box');
+  if (!$box) return;
+  const cab = '<span class="lbl">Conta e sincronização</span>';
+  const erro = (t) => `<p class="erro" role="alert">${esc(t)}</p>`;
+
+  if (!contaDisponivel()) {
+    $box.innerHTML = `${cab}<p class="muted">Em breve você poderá criar uma conta para levar a ofensiva para outros aparelhos e receber lembretes de oração no celular. Sem conta, tudo continua funcionando como hoje.</p>`;
+    return;
+  }
+
+  const forma = async (fn, btn, msgOk) => {
+    const texto = btn.textContent; btn.disabled = true; btn.textContent = 'Aguarde…';
+    try { await fn(); if (msgOk) toast(msgOk); }
+    catch (e) { const el = $box.querySelector('.erro') || $box.insertAdjacentElement('beforeend', Object.assign(document.createElement('p'), { className: 'erro' })); el.textContent = mensagemDeErro(e); el.setAttribute('role', 'alert'); btn.disabled = false; btn.textContent = texto; return false; }
+    return true;
+  };
+
+  async function desenhar(passo = 'inicio', email = '') {
+    const st = await estadoConta();
+    if (!st.logado) {
+      if (passo === 'codigo') {
+        $box.innerHTML = `${cab}
+          <p class="muted small">Enviamos um código de 6 dígitos para <b>${esc(email)}</b>. Digite abaixo.</p>
+          <div class="lembre-linha"><input class="campo" id="cc-codigo" inputmode="numeric" autocomplete="one-time-code" maxlength="8" placeholder="000000" aria-label="Código de 6 dígitos" style="width:160px;letter-spacing:.2em"><button class="btn solid" id="cc-entrar">Entrar</button></div>
+          <button class="btn ghost block" id="cc-voltar" style="margin-top:10px">Usar outro e-mail</button>`;
+        $box.querySelector('#cc-entrar').addEventListener('click', async (e) => {
+          const ok = await forma(() => confirmarCodigo(email, $box.querySelector('#cc-codigo').value), e.currentTarget, 'Você entrou');
+          if (ok) desenhar();
+        });
+        $box.querySelector('#cc-voltar').addEventListener('click', () => desenhar('inicio'));
+        return;
+      }
+      $box.innerHTML = `${cab}
+        <p class="muted small">Opcional. Entre para levar a ofensiva e a lista para outros aparelhos e receber lembretes no celular. Sem senha: enviamos um código por e-mail.</p>
+        <div class="lembre-linha"><input class="campo" type="email" id="cc-email" autocomplete="email" placeholder="seu@email.com" aria-label="Seu e-mail" style="flex:1;min-width:200px"><button class="btn solid" id="cc-enviar">Enviar código</button></div>`;
+      $box.querySelector('#cc-enviar').addEventListener('click', async (e) => {
+        const em = $box.querySelector('#cc-email').value.trim();
+        if (!/^\S+@\S+\.\S+$/.test(em)) return toast('Digite um e-mail válido');
+        const ok = await forma(() => enviarCodigo(em), e.currentTarget);
+        if (ok) desenhar('codigo', em);
+      });
+      return;
+    }
+
+    const quando = st.sincronizadoEm ? new Date(st.sincronizadoEm).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' }) : 'ainda não';
+    const cofre = st.cofre === 'sem'
+      ? `<p class="muted small">Para guardar a lista de confissão e as anotações na conta, crie uma <b>senha do cofre</b>. Ela cifra tudo neste aparelho, e ninguém consegue ler sem ela, nem o Lumen. Se você esquecer a senha, essa parte não pode ser recuperada.</p>
+           <div class="lembre-linha"><input class="campo" type="password" id="cv-senha" autocomplete="new-password" placeholder="Senha do cofre (8+ caracteres)" aria-label="Senha do cofre" style="flex:1;min-width:200px"><button class="btn solid" id="cv-criar">Criar cofre</button></div>`
+      : st.cofre === 'fechado'
+        ? `<p class="muted small">O cofre está fechado neste aparelho. Digite a senha para sincronizar a lista e as anotações.</p>
+           <div class="lembre-linha"><input class="campo" type="password" id="cv-senha" autocomplete="current-password" placeholder="Senha do cofre" aria-label="Senha do cofre" style="flex:1;min-width:200px"><button class="btn solid" id="cv-abrir">Abrir cofre</button></div>`
+        : st.cofre === 'aberto'
+          ? `<p class="muted small">Cofre aberto: a lista e as anotações são sincronizadas, cifradas.</p><button class="btn ghost" id="cv-fechar">Fechar o cofre neste aparelho</button>`
+          : '';
+    const push = !pushDisponivel() ? ''
+      : st.push === 'ativo'
+        ? `<p class="muted small" style="margin-top:14px">Lembretes no celular ligados, no horário do lembrete do terço.</p><button class="btn ghost" id="cp-off">Desligar lembretes no celular</button>`
+        : st.push === 'negado'
+          ? `<p class="muted small" style="margin-top:14px">As notificações estão bloqueadas neste aparelho. Libere nas configurações do navegador ou do celular.</p>`
+          : `<p class="muted small" style="margin-top:14px">Receba o lembrete do terço no celular, mesmo com o app fechado. No iPhone, o app precisa estar instalado na tela de início.</p><button class="btn solid" id="cp-on">Ativar lembretes no celular</button>`;
+    $box.innerHTML = `${cab}
+      <p class="muted small">Conectado como <b>${esc(st.email)}</b>. Última sincronização: ${quando}.</p>
+      <div class="lembre-linha"><button class="btn" id="cc-sync">Sincronizar agora</button><button class="btn ghost" id="cc-sair">Sair</button></div>
+      <p class="eyebrow" style="margin-top:18px">Cofre da lista de confissão</p>${cofre}
+      ${push ? `<p class="eyebrow" style="margin-top:18px">Lembretes no celular</p>${push}` : ''}
+      <button class="btn ghost" id="cc-apagar" style="margin-top:22px">Apagar minha conta e os dados do servidor</button>`;
+
+    const ligar = (id, fn, ok) => { const b = $box.querySelector(id); if (b) b.addEventListener('click', async (e) => { if (await forma(fn, e.currentTarget, ok) !== false) desenhar(); }); };
+    ligar('#cc-sync', sincronizar, 'Sincronizado');
+    ligar('#cc-sair', sairConta, 'Você saiu');
+    ligar('#cv-criar', () => criarCofre($box.querySelector('#cv-senha').value), 'Cofre criado');
+    ligar('#cv-abrir', () => abrirCofre($box.querySelector('#cv-senha').value), 'Cofre aberto');
+    ligar('#cv-fechar', async () => { esquecerCofre(); }, 'Cofre fechado');
+    ligar('#cp-on', async () => { if (!store.get('lembreHora', null)) throw new Error('Defina primeiro a hora do lembrete do terço, acima.'); await ativarPush(store.get('lembreHora', null)); }, 'Lembretes ligados');
+    ligar('#cp-off', desativarPush, 'Lembretes desligados');
+    const $ap = $box.querySelector('#cc-apagar');
+    if ($ap) $ap.addEventListener('click', async (e) => {
+      if (!confirm('Apagar sua conta e TODOS os dados do servidor (ofensiva, lista, lembretes)? Não dá para desfazer. Os dados deste aparelho continuam aqui.')) return;
+      if (await forma(apagarConta, e.currentTarget, 'Conta apagada') !== false) desenhar();
+    });
+  }
+  desenhar().catch((e) => { $box.innerHTML = `${cab}${erro(mensagemDeErro(e))}`; });
+}
+
 // ---------- Mais ----------
 function aplicarTema(t) {
   if (t === 'auto') document.documentElement.removeAttribute('data-theme');
@@ -1372,9 +1463,10 @@ function telaMais() {
       <span class="lbl">Seus números</span>
       <p class="muted">${tercos} ${tercos === 1 ? 'terço rezado' : 'terços rezados'} neste aparelho.</p>
     </div>
+    <div ${rc('setting')} id="conta-box"><span class="lbl">Conta</span><p class="muted small">Carregando…</p></div>
     <div ${rc('setting')}>
       <span class="lbl">Privacidade</span>
-      <p class="muted">O Lumen não tem conta, servidor nem rastreamento. Tudo o que você marca fica guardado só neste aparelho e pode ser apagado a qualquer momento.</p>
+      <p class="muted">Sem conta, o Lumen não tem servidor nem rastreamento: tudo fica só neste aparelho e pode ser apagado a qualquer momento. Com conta, a ofensiva e os ajustes ficam no servidor; a lista de confissão e as anotações vão cifradas com a senha do cofre, e ninguém além de você consegue lê-las. Você pode apagar a conta e tudo a qualquer hora.</p>
       <button class="btn ghost" id="apagar" style="margin-top:6px">Apagar todos os meus dados</button>
     </div>
     <div ${rc('setting')}>
@@ -1432,11 +1524,12 @@ function telaMais() {
   $view.querySelector('#lembre-salvar').addEventListener('click', () => {
     if (!$hora.value) return toast('Escolha uma hora');
     store.set('lembreHora', $hora.value);
+    atualizarHoraPush($hora.value);
     mostrarLembrete(); agendarAvisos();
     toast(`Lembrete salvo para ${$hora.value}`);
   });
   $view.querySelector('#lembre-off').addEventListener('click', () => {
-    store.del('lembreHora'); clearTimeout(avisoTimer);
+    store.del('lembreHora'); clearTimeout(avisoTimer); atualizarHoraPush(null);
     mostrarLembrete(); toast('Lembrete desativado');
   });
   $view.querySelector('#lembre-cal').addEventListener('click', () => {
@@ -1475,9 +1568,11 @@ function telaMais() {
     toast('Abra o arquivo para adicionar ao calendário');
   });
 
+  renderConta();
+
   $view.querySelector('#apagar').addEventListener('click', () => {
-    if (!confirm('Apagar a lista, as anotações, a data da última confissão e o progresso do terço?')) return;
-    ['marcados', 'nota', 'ultimaConfissao', 'tercoProgresso', 'tercosRezados', 'tercoHoje', 'tercoDiario', 'ofensivaRecorde', 'lembreHora', 'lembreConf', 'estados'].forEach(store.del);
+    if (!confirm('Apagar a lista, as anotações, a data da última confissão e o progresso do terço deste aparelho? (Os dados da conta no servidor não são apagados; para isso use "Apagar minha conta".)')) return;
+    ['marcados', 'nota', 'ultimaConfissao', 'tercoProgresso', 'tercosRezados', 'tercoHoje', 'tercoDiario', 'ofensivaRecorde', 'lembreHora', 'lembreConf', 'estados'].forEach(store.delQuieto);
     toast('Dados apagados');
     telaMais();
   });
@@ -1523,6 +1618,17 @@ document.fonts && document.fonts.ready.then(moverIndicador);
 aplicarTema(temaAtual());
 rota();
 agendarAvisos();
+ligarConta({
+  get: (k, d) => store.get(k, d),
+  set: (k, v) => store.set(k, v),
+  setQuieto: (k, v) => store.setQuieto(k, v),
+  delQuieto: (k) => store.delQuieto(k),
+  apagarMeta: () => ['sincronizadoEm', 'modificadoEm', 'cofreModificadoEm', 'cofreLigado'].forEach(store.delQuieto),
+}, () => {
+  const ativo = document.activeElement;
+  if (ativo && /^(INPUT|TEXTAREA)$/.test(ativo.tagName)) return; // não atrapalha quem está digitando
+  rota();
+});
 
 if ('serviceWorker' in navigator && location.protocol !== 'file:') {
   navigator.serviceWorker.register('sw.js').catch(() => {});

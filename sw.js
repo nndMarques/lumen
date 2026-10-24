@@ -1,7 +1,7 @@
 // Guarda o app para funcionar sem internet (ex.: dentro da igreja).
-const CACHE = 'lumen-v17';
+const CACHE = 'lumen-v18';
 const ARQUIVOS = [
-  './', 'index.html', 'css/style.css', 'js/app.js', 'js/data/exames.js', 'js/data/terco.js', 'js/data/santos.js', 'js/data/leituras.js', 'js/liturgia.js', 'js/rosario.js',
+  './', 'index.html', 'css/style.css', 'js/app.js', 'js/data/exames.js', 'js/data/terco.js', 'js/data/santos.js', 'js/data/leituras.js', 'js/liturgia.js', 'js/conta.js', 'js/config.js', 'js/rosario.js',
   'manifest.webmanifest', 'icons/icon.svg', 'icons/icon-192.png', 'icons/icon-512.png', 'icons/icon-180.png',
 ];
 
@@ -34,7 +34,18 @@ self.addEventListener('notificationclick', (e) => {
   e.notification.close();
   e.waitUntil(self.clients.matchAll({ type: 'window' }).then((cs) => {
     const c = cs.find((x) => 'focus' in x);
-    if (c) { c.navigate('./#/terco'); return c.focus(); }
-    return self.clients.openWindow('./#/terco');
+    const url = (e.notification.data && e.notification.data.url) || './#/terco';
+    if (c) { c.navigate(url); return c.focus(); }
+    return self.clients.openWindow(url);
+  }));
+});
+
+// Aviso enviado pelo servidor (Web Push), mesmo com o app fechado.
+self.addEventListener('push', (e) => {
+  let d = {};
+  try { d = e.data ? e.data.json() : {}; } catch (err) {}
+  e.waitUntil(self.registration.showNotification(d.titulo || 'Hora do terço', {
+    body: d.corpo || 'Um momento de oração com o Lumen.',
+    icon: 'icons/icon-192.png', badge: 'icons/icon-192.png', tag: 'lumen-terco', data: { url: d.url || './#/terco' },
   }));
 });
