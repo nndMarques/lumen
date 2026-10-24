@@ -761,3 +761,74 @@ p { margin: 0 0 12px; }
   padding: 0 12px 28px; text-decoration: none;
 }
 .tabbar .brand em { color: var(--tab-em); }
+
+/* ---------- Legibilidade e cara de aplicativo ----------
+   A fonte desenhada (Instrument Serif) fica para títulos e números grandes.
+   O resto usa a fonte limpa (Archivo), e o que é tocável tem forma de botão. */
+:root { --tocavel: 14px; }
+
+/* texto de leitura */
+.lead { font-family: var(--sans); font-size: 18px; line-height: 1.5; }
+.section-note { font-family: var(--sans); font-style: normal; font-size: 15px; line-height: 1.45; }
+.formula { font-family: var(--sans); font-style: normal; font-size: 17px; line-height: 1.55; }
+.pray-stage .mystery, .et-mist p { font-family: var(--sans); font-style: normal; font-size: 15px; }
+.pray-stage .ptext, .et-or .ptext { font-family: var(--sans); font-size: 18px; line-height: 1.6; }
+.pray-stage .alt, .et-or .alt, .cp-or .la, .cp-mist .la, .prayer-block .la { font-family: var(--sans); font-style: normal; font-size: 14px; line-height: 1.5; }
+.cp-or .pt, .prayer-block .pt { font-family: var(--sans); font-size: 16px; line-height: 1.55; }
+.mystery-list li { font-family: var(--sans); font-size: 16px; line-height: 1.4; }
+.cp-int { font-family: var(--sans); font-style: normal; font-size: 15px; }
+.lit-line { font-family: var(--sans); font-style: normal; font-size: 16px; }
+.aviso span { font-family: var(--sans); font-size: 16px; line-height: 1.4; }
+.of-estado, .of-final-t { font-family: var(--sans); font-size: 17px; line-height: 1.4; font-weight: 500; }
+.tambem .nt { font-family: var(--sans); font-style: normal; font-size: 14px; }
+.sticky-cta .tally { font-family: var(--sans); font-size: 17px; font-weight: 600; }
+
+/* títulos pequenos */
+h3 { font-family: var(--sans); font-weight: 600; font-size: 20px; line-height: 1.25; }
+.section-head h3, .et-or h3, .cp-or h3, .cp-mist h3, .prayer-block h3 { font-size: 20px; }
+.cp-or h3 .muted, .prayer-block h3 .muted { font-style: normal; font-size: 14px; font-weight: 400; }
+.row .title, .steps .t, .tambem .t, .pm-t, .setting .lbl { font-family: var(--sans); font-size: 18px; font-weight: 600; line-height: 1.3; }
+.setting .lbl { margin-bottom: 8px; }
+.leituras .ref { font-family: var(--sans); font-size: 17px; font-weight: 500; }
+.leituras li.ev .ref { font-size: 19px; font-weight: 600; }
+.cd .cn { font-family: var(--sans); font-size: 17px; font-weight: 500; }
+.campo { font-family: var(--sans); font-size: 20px; border-radius: 12px; }
+.eyebrow { font-size: 12px; letter-spacing: 0.1em; }
+
+/* o que se toca parece botão */
+.btn { border-radius: var(--tocavel); text-transform: none; letter-spacing: 0; font-size: 16px; min-height: 54px; }
+.btn.solid { box-shadow: none; }
+.choice { border-radius: 999px; padding: 10px 16px; font-size: 15px; }
+.lang-toggle { border-radius: 999px; overflow: hidden; }
+.lang-toggle button { font-size: 13px; padding: 9px 16px; }
+.cal-nav { border-radius: var(--tocavel); }
+.note-area { border-radius: 12px; }
+.aviso { border-radius: 12px; }
+.toast { border-radius: 12px; }
+.back { text-transform: none; letter-spacing: 0; font-size: 15px; font-weight: 600; color: var(--accent); }
+.tabbar a { font-size: 12px; }
+
+.rows { border-top: 0; display: grid; gap: 10px; }
+.row {
+  border: 1px solid var(--line); border-radius: var(--tocavel);
+  background: var(--bg-2); padding: 16px 14px 16px 16px;
+  transition: border-color 0.25s, background-color 0.25s, transform 0.15s var(--ease);
+}
+.row:active { background: var(--accent-soft); transform: scale(0.99); }
+@media (hover: hover) { .row:hover { padding-left: 16px; border-color: var(--accent); } }
+.row .arrow { width: 34px; height: 34px; padding: 8px; border-radius: 50%; background: var(--accent-soft); stroke: var(--accent); }
+@media (hover: hover) { .row:hover .arrow { transform: none; background: var(--accent); stroke: var(--accent-ink); } }
+.misterio-op.aberto .opcoes-in { border-bottom: 0; padding: 12px 0 6px; }
+.mes-lista .row .marca { width: 4px; height: 30px; border-radius: 2px; }
+
+.q { border: 1px solid var(--line); border-radius: var(--tocavel); background: var(--bg-2); padding: 14px 14px 14px 14px; margin-top: 8px; transition: border-color 0.2s, background-color 0.2s; }
+.q .box { width: 26px; height: 26px; border-radius: 8px; margin-top: 0; }
+.q:has(input:checked) { border-color: var(--accent); background: var(--accent-soft); }
+.q .text { font-size: 16px; }
+
+@media (max-width: 899px) {
+  .conta-painel { border-radius: 20px 20px 0 0; }
+}
+@media (min-width: 900px) {
+  .pray-stage .ptext, .et-or .ptext { font-size: 20px; }
+}
