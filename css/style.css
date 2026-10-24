@@ -566,6 +566,7 @@ p { margin: 0 0 12px; }
 @keyframes de-esq { from { opacity: 0; transform: translateX(-40px); } }
 
 .tambem { list-style: none; margin: 0; padding: 0; border-top: 1px solid var(--line); }
+.tambem li:last-child { border-bottom: 0; }
 .tambem li { display: flex; flex-direction: column; gap: 3px; padding: 15px 0; border-bottom: 1px solid var(--line); }
 .tambem .t { font-family: var(--serif); font-size: 21px; line-height: 1.15; }
 .tambem .g { font-size: 11px; font-weight: 600; letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted); }
@@ -573,6 +574,15 @@ p { margin: 0 0 12px; }
 .tambem .nt { font-family: var(--serif); font-style: italic; font-size: 16px; color: var(--muted); }
 
 .mes-lista .row .marca { width: 3px; height: 34px; }
+
+/* ---------- Leituras da Missa ---------- */
+.leituras { list-style: none; margin: 4px 0 0; padding: 0; border-top: 1px solid var(--line); }
+.leituras li { display: grid; grid-template-columns: 96px 1fr; gap: 12px; align-items: baseline; padding: 13px 0; border-bottom: 1px solid var(--line); }
+.leituras .rot { font-size: 11px; font-weight: 600; letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted); }
+.leituras .ref { font-family: var(--serif); font-size: 21px; line-height: 1.25; }
+.leituras .refrao { display: block; font-family: var(--sans); font-size: 13px; color: var(--muted); margin-top: 4px; }
+.leituras li.ev .rot { color: var(--accent); }
+.leituras li.ev .ref { font-size: 24px; }
 
 /* ---------- Ajustes ---------- */
 .setting { padding: 18px 0; border-bottom: 1px solid var(--line); }

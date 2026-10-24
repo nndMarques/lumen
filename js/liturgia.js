@@ -1,6 +1,7 @@
 // Calendário litúrgico: tempos, cores, festas móveis e precedência,
 // segundo as Normas Universais do Ano Litúrgico e o próprio do Brasil.
 import { FIXAS, MOVEIS } from './data/santos.js';
+import { LEITURAS } from './data/leituras.js';
 
 const MS = 86400000;
 // Os dias são contados como números inteiros (dias desde 1970, em UTC) para evitar problemas de fuso e horário de verão.
@@ -102,6 +103,7 @@ function tempo(n) {
   if (n >= A.advento && n < A.natal) {
     const k = Math.floor((n - A.advento) / 7) + 1;
     return {
+      fase: 'adv', k,
       tempo: 'Advento', cor: dom && k === 3 ? 'p' : 'v',
       titulo: dom ? `${ord(k)} Domingo do Advento` : `${SEMANA[w]} da ${ord(k, 1)} semana do Advento`,
       prec: dom ? 1 : x.d >= 17 ? 9 : 13,
@@ -110,6 +112,7 @@ function tempo(n) {
   if (n >= A.natal || n <= A.batismo) {
     const oitava = (x.m === 12 && x.d >= 25) || (x.m === 1 && x.d === 1);
     return {
+      fase: 'nat',
       tempo: 'Tempo do Natal', cor: 'w',
       titulo: oitava ? 'Oitava do Natal' : dom ? 'Domingo do Tempo do Natal' : `${SEMANA[w]} do Tempo do Natal`,
       prec: dom ? 6 : oitava ? 9 : 13,
@@ -119,6 +122,7 @@ function tempo(n) {
     const ref = dow(A.batismo) === 0 ? A.batismo : A.epifania;
     const k = Math.floor((n - ref) / 7) + 1;
     return {
+      fase: 'tc', k,
       tempo: 'Tempo Comum', cor: 'g',
       titulo: dom ? `${ord(k)} Domingo do Tempo Comum` : `${SEMANA[w]} da ${ord(k, 1)} semana do Tempo Comum`,
       prec: dom ? 6 : 13,
@@ -132,13 +136,14 @@ function tempo(n) {
     else if (n === A.ramos) titulo = 'Domingo de Ramos';
     else if (n > A.ramos) titulo = `${SEMANA[w]} Santa`;
     else titulo = dom ? `${ord(k)} Domingo da Quaresma` : `${SEMANA[w]} da ${ord(k, 1)} semana da Quaresma`;
-    return { tempo: 'Quaresma', cor: dom && k === 4 ? 'p' : 'v', titulo, prec: dom || n === A.cinzas || n > A.ramos ? 1 : 9 };
+    return { fase: n > A.ramos ? 'santa' : 'qua', k, tempo: 'Quaresma', cor: dom && k === 4 ? 'p' : 'v', titulo, prec: dom || n === A.cinzas || n > A.ramos ? 1 : 9 };
   }
-  if (n < A.E) return { tempo: 'Tríduo Pascal', cor: n === A.quinta ? 'w' : n === A.sexta ? 'r' : 'v', titulo: `${SEMANA[w]} Santa`, prec: 1 };
+  if (n < A.E) return { fase: 'tri', tempo: 'Tríduo Pascal', cor: n === A.quinta ? 'w' : n === A.sexta ? 'r' : 'v', titulo: w === 6 ? 'Sábado Santo' : `${SEMANA[w]} Santa`, prec: 1 };
   if (n <= A.pentecostes) {
     const k = Math.floor((n - A.E) / 7) + 1;
     const oitava = n <= A.E + 7;
     return {
+      fase: 'pas', k,
       tempo: 'Tempo Pascal', cor: n === A.pentecostes ? 'r' : 'w',
       titulo: n === A.E ? 'Domingo da Páscoa' : n === A.pentecostes ? 'Domingo de Pentecostes' : oitava && !dom ? `${SEMANA[w]} da Oitava da Páscoa` : dom ? `${ord(k)} Domingo da Páscoa` : `${SEMANA[w]} da ${ord(k, 1)} semana da Páscoa`,
       prec: dom || oitava ? 1 : 13,
@@ -146,6 +151,7 @@ function tempo(n) {
   }
   const k = 34 - Math.round((A.cristoRei - domingoEmOuAntes(n)) / 7);
   return {
+    fase: 'tc', k,
     tempo: 'Tempo Comum', cor: 'g',
     titulo: dom ? `${ord(k)} Domingo do Tempo Comum` : `${SEMANA[w]} da ${ord(k, 1)} semana do Tempo Comum`,
     prec: dom ? 6 : 13,
@@ -172,7 +178,7 @@ export function dia(n) {
   const lembrados = [];
 
   if (A.moveis[n]) {
-    const c = { ...MOVEIS[A.moveis[n]], senhor: true };
+    const c = { ...MOVEIS[A.moveis[n]], senhor: true, mk: A.moveis[n] };
     if (A.moveis[n] === 'oitavaPascoa') c.n = T.titulo;
     cands.push(c);
   }
@@ -183,10 +189,10 @@ export function dia(n) {
     if (para !== undefined) {
       const dd = data(para);
       lembrados.push({ ...c, nota: `Neste ano, celebrada no ${dow(para) === 0 ? 'domingo' : 'dia'} ${dd.d}/${String(dd.m).padStart(2, '0')}${c.domingo ? ', como é costume no Brasil' : ''}.` });
-    } else cands.push({ ...c, senhor: FESTAS_DO_SENHOR.includes(k) });
+    } else cands.push({ ...c, senhor: FESTAS_DO_SENHOR.includes(k), fk: k });
   });
   Object.entries(A.transferidas).forEach(([kk, para]) => {
-    if (para === n) FIXAS[kk].forEach((c) => cands.push({ ...c, nota: `Transferida de ${kk.split('-').reverse().join('/')}.` }));
+    if (para === n) FIXAS[kk].forEach((c) => cands.push({ ...c, fk: kk, nota: `Transferida de ${kk.split('-').reverse().join('/')}.` }));
   });
 
   // Duas memórias obrigatórias no mesmo dia: ambas ficam facultativas.
@@ -215,5 +221,54 @@ export function dia(n) {
     principal,
     destaque: principal || opcoes[0] || outros.find((c) => c.g === 'c') || null,
     outros: [...outros, ...lembrados],
+  };
+}
+
+// ---------- Leituras da Missa ----------
+// Devolve { l1, salmo, refrao, l2, ev, nota } com as referências do dia, ou null quando não há dados.
+const NOTAS = {
+  natal: 'Missa do dia. Há também as missas da vigília, da noite e da aurora.',
+  pascoa: 'Missa do dia. Na Vigília Pascal, na noite de sábado, as leituras são outras.',
+  vigilia: 'Vigília Pascal: até sete leituras do Antigo Testamento (aqui, a primeira), a epístola e o Evangelho.',
+  'f11-02': 'Primeira opção de cada leitura. O Lecionário traz outras.',
+};
+
+export function leiturasDo(n) {
+  const D = dia(n);
+  const A = ano(D.y);
+  const T = tempo(n);
+  const c = D.ano;
+  const sem = D.anoPar ? 'II' : 'I';
+  const L = (k) => (LEITURAS[k] ? { k, v: LEITURAS[k] } : null);
+  const p = D.principal;
+  let r = null;
+
+  if (p && 'SF'.includes(p.g)) {
+    if (p.mk === 'sacerdote') return { semDados: true, nota: 'As leituras desta festa estão no próprio do Brasil, no Lecionário.' };
+    if (p.mk === 'oitavaPascoa') r = L(`oit${D.w}`);
+    else if (p.mk === 'misericordia') r = L(`pas2${c}`);
+    else if (p.mk === 'sabadoSanto') r = { ...L(`vigilia${c}`), k: 'vigilia' };
+    else if (p.mk) r = L(p.mk + c) || L(p.mk);
+    else if (p.fk === '12-25') r = L('natal');
+    else if (p.fk === '01-01') r = L('maeDeDeus');
+    else if (p.fk) r = L(`f${p.fk}${c}`) || L(`f${p.fk}`);
+  }
+
+  if (!r) {
+    const w = D.w;
+    if (T.fase === 'adv') r = w === 0 ? L(`adv${T.k}${c}`) : D.m === 12 && D.d >= 17 ? L(`dez${D.d}`) : L(`adv${T.k}-${w}`);
+    else if (T.fase === 'nat') r = D.m === 12 ? L(`dez${D.d}`) : n < A.epifania ? L(`jan${D.d}`) : L(`posEpi${w}`);
+    else if (T.fase === 'tc') r = w === 0 ? L(`tc${T.k}${c}`) : L(`tc${T.k}-${w}${sem}`);
+    else if (T.fase === 'qua') r = w === 0 ? L(`qua${T.k}${c}`) : T.k === 0 ? L(`cinzas${w}`) : L(`qua${T.k}-${w}`);
+    else if (T.fase === 'santa') r = L(`santa${w}`);
+    else if (T.fase === 'pas') r = w === 0 ? L(`pas${T.k}${c}`) : L(`pas${T.k}-${w}`);
+  }
+  if (!r || !r.v) return null;
+  const [l1, salmo, refrao, l2, ev] = r.v;
+  const santo = p || D.destaque;
+  const memoria = santo && 'Mmc'.includes(santo.g);
+  return {
+    l1, salmo, refrao, l2, ev,
+    nota: NOTAS[r.k] || NOTAS[p && p.fk ? `f${p.fk}` : ''] || (memoria ? 'Nas memórias, a Missa costuma usar as leituras do dia de semana.' : ''),
   };
 }

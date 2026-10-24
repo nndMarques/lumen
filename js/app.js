@@ -1,7 +1,7 @@
 import { EXAMES, ESTADOS, PASSOS, CONTRICAO } from './data/exames.js';
 import { ORACOES, MISTERIOS, POR_DIA, INTENCOES_INICIAIS, LINGUAS, PARTES } from './data/terco.js';
 import { rosarioSVG, ordem, oracoesDa, ORD } from './rosario.js';
-import { dia, data, hojeNum, iso, deIso, GRAUS, CORES } from './liturgia.js';
+import { dia, data, hojeNum, iso, deIso, GRAUS, CORES, leiturasDo } from './liturgia.js';
 
 // ---------- Armazenamento local (nada sai do aparelho) ----------
 const temaAtual = () => { try { return localStorage.getItem('lumen.theme') || 'auto'; } catch (e) { return 'auto'; } };
@@ -94,6 +94,8 @@ function telaInicio() {
   const n = totalMarcados();
   const L = dia(hojeNum());
   const santo = L.destaque;
+  const lh = leiturasDo(hojeNum());
+  const ev = lh && lh.ev;
 
   let conf;
   if (dias === null) {
@@ -128,7 +130,10 @@ function telaInicio() {
       <h2 ${r()}>${santo.n}</h2>
       <p ${rc('muted')} style="margin-top:10px">${santo.b}</p>` : `
       <p ${r()}><span class="eyebrow">Santos e festas</span></p>`}
-    <ul ${rc('rows')} style="margin-top:14px"><li><a class="row" href="#/santos"><span class="body"><span class="title">Calendário dos santos</span><span class="sub">Os santos e as festas de cada dia do ano</span></span>${ICON_ARROW}</a></li></ul>
+    <ul ${rc('rows')} style="margin-top:14px">
+      ${ev ? `<li><a class="row" href="#/santos/${iso(hojeNum())}"><span class="body"><span class="title">Evangelho · ${ev}</span><span class="sub">Ver as leituras da Missa de hoje</span></span>${ICON_ARROW}</a></li>` : ''}
+      <li><a class="row" href="#/santos"><span class="body"><span class="title">Calendário dos santos</span><span class="sub">Os santos e as festas de cada dia do ano</span></span>${ICON_ARROW}</a></li>
+    </ul>
   `);
 }
 
@@ -798,6 +803,22 @@ function telaRezar(conjunto) {
   desenhar(false);
 }
 
+// ---------- Leituras da Missa ----------
+function leiturasHTML(n) {
+  const L = leiturasDo(n);
+  if (!L) return '';
+  if (L.semDados) return `<p class="muted">${L.nota}</p>`;
+  const linha = (rot, ref, extra = '', cls = '') => (ref ? `<li class="${cls}"><span class="rot">${rot}</span><span class="ref">${ref}${extra}</span></li>` : '');
+  return `
+    <ul class="leituras">
+      ${linha('1ª leitura', L.l1)}
+      ${linha('Salmo', L.salmo, L.refrao ? `<span class="refrao">Refrão: ${L.refrao}</span>` : '')}
+      ${linha('2ª leitura', L.l2)}
+      ${linha('Evangelho', L.ev, '', 'ev')}
+    </ul>
+    ${L.nota ? `<p class="muted small" style="margin-top:10px">${L.nota}</p>` : ''}`;
+}
+
 // ---------- Santos e festas ----------
 const SEMANA_MIN = ['domingo', 'segunda-feira', 'terça-feira', 'quarta-feira', 'quinta-feira', 'sexta-feira', 'sábado'];
 
@@ -955,8 +976,8 @@ function telaDiaSanto(n0) {
           ${motivo(o) ? `<span class="nt">${motivo(o)}</span>` : ''}
         </li>`).join('')}</ul>` : ''}
       <hr class="rule">
-      <p class="eyebrow">Evangelho do dia</p>
-      <p class="muted">Em breve, o Evangelho de cada dia vai aparecer aqui.</p>
+      <p class="eyebrow">Leituras da Missa</p>
+      ${leiturasHTML(n)}
       <p class="dv-dica">Deslize para os lados para ver outros dias</p>
     `;
     if (dir) { $corpo.classList.remove('de-dir', 'de-esq'); void $corpo.offsetWidth; $corpo.classList.add(dir > 0 ? 'de-dir' : 'de-esq'); }
@@ -1071,9 +1092,10 @@ function telaMais() {
     </div>
     <div ${rc('setting')}>
       <span class="lbl">Em breve</span>
-      <p class="muted">Evangelho do dia, o jogo diário do santo, e a Cela, uma pergunta de exame por noite.</p>
+      <p class="muted">O jogo diário do santo e a Cela, uma pergunta de exame por noite.</p>
     </div>
-    <p ${rc('muted small')} style="margin-top:24px">O calendário segue o Calendário Romano Geral e o próprio do Brasil, com as solenidades transferidas para o domingo como é costume aqui.</p>
+    <p ${rc('muted small')} style="margin-top:24px">As referências das leituras seguem o Lecionário da Missa, a partir das tabelas do Pe. Felix Just, S.J., em <a href="https://catholic-resources.org/Lectionary/" target="_blank" rel="noopener">catholic-resources.org</a>.</p>
+    <p ${rc('muted small')}>O calendário segue o Calendário Romano Geral e o próprio do Brasil, com as solenidades transferidas para o domingo como é costume aqui.</p>
     <p ${rc('muted small')}>Os exames foram escritos com base no Catecismo da Igreja Católica. Eles ajudam a preparar a confissão, mas não substituem a orientação de um sacerdote.</p>
   `);
 
