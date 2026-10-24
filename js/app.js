@@ -98,11 +98,13 @@ function telaInicio() {
   const lh = leiturasDo(hojeNum());
   const ev = lh && lh.ev;
 
+  const ivConf = store.get('lembreConf', 0);
+  const atrasada = ivConf && dias !== null && dias >= ivConf;
   let conf;
   if (dias === null) {
     conf = `<p class="lead">Quando foi a sua última confissão? Marque no fim do exame e o Lumen te lembra.</p>`;
   } else {
-    conf = `<div class="counter"><span class="big">${dias}</span><span class="lbl">${dias === 1 ? 'dia' : 'dias'} desde a última confissão</span></div>`;
+    conf = `<div class="counter${atrasada ? ' atrasada' : ''}"><span class="big">${dias}</span><span class="lbl">${dias === 1 ? 'dia' : 'dias'} desde a última confissão</span></div>`;
   }
 
   render(`
@@ -113,6 +115,7 @@ function telaInicio() {
     </div>
     <p ${rc('lit-line')}><span class="lc lc-${L.cor}"></span>${L.titulo}</p>
     <hr ${rc('rule')}>
+    ${avisosHTML(dias) ? `<div ${rc('avisos')}>${avisosHTML(dias)}</div>` : ''}
     <p ${r()}><span class="eyebrow">Confissão</span></p>
     <div ${r()}>${conf}</div>
     <ul ${rc('rows')} style="margin-top:18px">
@@ -483,6 +486,7 @@ function ofensivaHTML(of) {
       ${ofensivaSVG(of)}
       <p class="of-estado">${estado}</p>
       ${meta ? `<p class="muted small">${of.seq > 0 ? `${dezena}ª dezena · ` : ''}próxima meta: ${meta} dias${of.seq > 0 ? ` (faltam ${meta - of.seq})` : ''}</p>` : ''}
+      ${of.seq > 0 ? `<button class="btn ghost block" data-card-of style="margin-top:16px">Compartilhar minha ofensiva</button>` : ''}
     </div>`;
 }
 
@@ -559,6 +563,7 @@ function telaTerco() {
     </ul>
   `);
   const $const = $view.querySelector('.constancia');
+  $const.addEventListener('click', (e) => { if (e.target.closest('[data-card-of]')) cardOfensiva(); });
 
   const marcarFeitos = () => {
     const feitos = rezadosHoje();
@@ -844,8 +849,12 @@ function telaRezar(conjunto) {
           ${ofensivaSVG(of)}
           <p class="of-final-t">${subiu ? (of.seq === 1 ? 'Primeira conta acesa. Sua ofensiva começou.' : `Ofensiva de ${of.seq} dias${meta ? ' · nova meta!' : ''}`) : `Ofensiva de ${of.seq} ${of.seq === 1 ? 'dia' : 'dias'} mantida.`}</p>
         </div>
-        <div class="rise" style="--i:7;margin-top:26px"><a class="btn block" href="#/">Voltar ao início</a></div>
+        <div class="rise" style="--i:7;margin-top:26px;display:grid;gap:10px">
+          <button class="btn solid block" data-card-of>Compartilhar minha ofensiva</button>
+          <a class="btn block" href="#/">Voltar ao início</a>
+        </div>
       </div>`;
+    $view.querySelector('[data-card-of]').addEventListener('click', cardOfensiva);
     window.scrollTo(0, 0);
   }
 
@@ -1051,6 +1060,7 @@ function telaDiaSanto(n0) {
       <hr class="rule">
       <p class="eyebrow">Leituras da Missa</p>
       ${leiturasHTML(n)}
+      ${c ? `<button class="btn ghost block" data-card-santo style="margin-top:28px">Compartilhar este dia</button>` : ''}
       <p class="dv-dica">Deslize para os lados para ver outros dias</p>
     `;
     if (dir) { $corpo.classList.remove('de-dir', 'de-esq'); void $corpo.offsetWidth; $corpo.classList.add(dir > 0 ? 'de-dir' : 'de-esq'); }
@@ -1074,6 +1084,7 @@ function telaDiaSanto(n0) {
   }
 
   $view.querySelector('#dv-voltar').addEventListener('click', voltar);
+  $corpo.addEventListener('click', (e) => { if (e.target.closest('[data-card-santo]')) cardSanto(n); });
   $view.querySelectorAll('[data-passo]').forEach((b) => b.addEventListener('click', () => passar(+b.dataset.passo)));
 
   // deslizar para os lados no celular
@@ -1108,6 +1119,193 @@ function telaDiaSanto(n0) {
   } else {
     $dv.classList.add('rise');
   }
+}
+
+// ---------- Lembretes ----------
+const p2 = (n) => String(n).padStart(2, '0');
+const icsData = (d) => `${d.getFullYear()}${p2(d.getMonth() + 1)}${p2(d.getDate())}T${p2(d.getHours())}${p2(d.getMinutes())}00`;
+const icsTexto = (t) => String(t).replace(/\\/g, '\\\\').replace(/[,;]/g, (c) => '\\' + c).replace(/\n/g, '\\n');
+
+function baixarArquivo(blob, nome) {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = nome;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 4000);
+}
+
+// Evento de calendário com alarme: toca no celular mesmo com o app fechado.
+function baixarEvento({ nome, titulo, descricao, inicio, repete }) {
+  const fim = new Date(inicio.getTime() + 15 * 60000);
+  const agora = new Date();
+  const utc = `${agora.getUTCFullYear()}${p2(agora.getUTCMonth() + 1)}${p2(agora.getUTCDate())}T${p2(agora.getUTCHours())}${p2(agora.getUTCMinutes())}00Z`;
+  const linhas = [
+    'BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//Lumen//PT', 'CALSCALE:GREGORIAN', 'BEGIN:VEVENT',
+    `UID:${nome}-${inicio.getTime()}@lumen`, `DTSTAMP:${utc}`,
+    `DTSTART:${icsData(inicio)}`, `DTEND:${icsData(fim)}`,
+    ...(repete ? ['RRULE:FREQ=DAILY'] : []),
+    `SUMMARY:${icsTexto(titulo)}`, `DESCRIPTION:${icsTexto(descricao)}`,
+    'BEGIN:VALARM', 'ACTION:DISPLAY', `DESCRIPTION:${icsTexto(titulo)}`, 'TRIGGER:PT0M', 'END:VALARM',
+    'END:VEVENT', 'END:VCALENDAR',
+  ];
+  baixarArquivo(new Blob([linhas.join('\r\n')], { type: 'text/calendar;charset=utf-8' }), `${nome}.ics`);
+}
+
+const minutosDe = (hhmm) => { const [h, m] = hhmm.split(':').map(Number); return h * 60 + m; };
+
+// Avisos na aba Hoje: terço depois da hora marcada e confissão atrasada.
+function avisosHTML(dias) {
+  const out = [];
+  const h = store.get('lembreHora', null);
+  const agora = new Date();
+  if (h && agora.getHours() * 60 + agora.getMinutes() >= minutosDe(h) && !rezadosHoje().length) {
+    out.push(`<a class="aviso" href="#/terco"><span><b>Hora do terço</b>Você marcou o lembrete para ${h} e ainda não rezou hoje.</span>${ICON_ARROW}</a>`);
+  }
+  const iv = store.get('lembreConf', 0);
+  if (iv && dias !== null && dias >= iv) {
+    out.push(`<a class="aviso" href="#/exame"><span><b>Confissão</b>Faz ${dias} dias desde a sua última confissão. Que tal fazer o exame de consciência?</span>${ICON_ARROW}</a>`);
+  }
+  return out.join('');
+}
+
+// Notificação do navegador, enquanto o app estiver aberto ou em segundo plano.
+let avisoTimer;
+function agendarAvisos() {
+  clearTimeout(avisoTimer);
+  const h = store.get('lembreHora', null);
+  if (!h || typeof Notification === 'undefined' || Notification.permission !== 'granted' || !navigator.serviceWorker) return;
+  const alvo = new Date();
+  alvo.setHours(...h.split(':').map(Number), 0, 0);
+  const espera = alvo - Date.now();
+  if (espera <= 0 || espera > 20 * 3600000) return;
+  avisoTimer = setTimeout(() => {
+    if (rezadosHoje().length) return;
+    navigator.serviceWorker.ready.then((reg) => reg.showNotification('Hora do terço', {
+      body: 'Um momento de oração com o Lumen.', icon: 'icons/icon-192.png', tag: 'lumen-terco',
+    })).catch(() => {});
+  }, espera);
+}
+
+// ---------- Cards para compartilhar ----------
+async function compartilharImagem(canvas, nome, texto) {
+  const blob = await new Promise((r) => canvas.toBlob(r, 'image/png'));
+  const arquivo = new File([blob], `${nome}.png`, { type: 'image/png' });
+  if (navigator.canShare && navigator.canShare({ files: [arquivo] })) {
+    try { await navigator.share({ files: [arquivo], text: texto }); return 'compartilhado'; }
+    catch (e) { if (e && e.name === 'AbortError') return 'cancelado'; }
+  }
+  baixarArquivo(blob, `${nome}.png`);
+  return 'baixado';
+}
+
+function quebrar(x, texto, larg) {
+  const linhas = [];
+  let atual = '';
+  texto.split(/\s+/).forEach((p) => {
+    const t = atual ? `${atual} ${p}` : p;
+    if (x.measureText(t).width > larg && atual) { linhas.push(atual); atual = p; } else atual = t;
+  });
+  if (atual) linhas.push(atual);
+  return linhas;
+}
+
+async function desenharCard(tipo, dados) {
+  const SERIF = '"Instrument Serif", "Times New Roman", serif';
+  const SANS = 'Archivo, system-ui, sans-serif';
+  await Promise.all(['400 100px "Instrument Serif"', 'italic 400 100px "Instrument Serif"', '600 40px Archivo', '400 40px Archivo'].map((f) => document.fonts.load(f).catch(() => {})));
+  const W = 1080, H = 1920;
+  const c = document.createElement('canvas');
+  c.width = W; c.height = H;
+  const x = c.getContext('2d');
+  const OURO = '#f2c230', TINTA = '#f1ead8', MUDO = '#9a917c', FUNDO = '#0d0c0a';
+  const espaco = (px) => { if ('letterSpacing' in x) x.letterSpacing = `${px}px`; };
+
+  x.fillStyle = FUNDO; x.fillRect(0, 0, W, H);
+  x.strokeStyle = 'rgba(241,234,216,0.16)'; x.lineWidth = 2; x.strokeRect(54, 54, W - 108, H - 108);
+
+  // marca
+  x.textAlign = 'left'; x.textBaseline = 'alphabetic';
+  x.font = `400 104px ${SERIF}`; const wLu = x.measureText('Lu').width;
+  x.font = `italic 400 104px ${SERIF}`; const wMen = x.measureText('men').width;
+  const x0 = (W - wLu - wMen) / 2;
+  x.font = `400 104px ${SERIF}`; x.fillStyle = TINTA; x.fillText('Lu', x0, 230);
+  x.font = `italic 400 104px ${SERIF}`; x.fillStyle = OURO; x.fillText('men', x0 + wLu, 230);
+
+  x.textAlign = 'center';
+  const rotulo = (t, y, cor = MUDO, px = 34) => { x.font = `600 ${px}px ${SANS}`; x.fillStyle = cor; espaco(8); x.fillText(t.toUpperCase(), W / 2 + 4, y); espaco(0); };
+
+  if (tipo === 'ofensiva') {
+    const { seq, total, recorde } = dados;
+    rotulo('Ofensiva do terço', 520);
+    x.font = `400 560px ${SERIF}`; x.fillStyle = OURO; x.fillText(String(seq), W / 2, 1040);
+    x.font = `400 86px ${SERIF}`; x.fillStyle = TINTA; x.fillText(seq === 1 ? 'dia seguido rezando' : 'dias seguidos rezando', W / 2, 1160);
+
+    // o terço da ofensiva (mesmo desenho do app)
+    const s = 2.7, ox = (W - 320 * s) / 2, oy = 1400;
+    const X = (v) => ox + v * s;
+    const completa = seq > 0 && seq % 10 === 0;
+    const acesas = completa ? 10 : seq % 10;
+    x.strokeStyle = MUDO; x.lineWidth = 2; x.beginPath(); x.moveTo(X(26), oy); x.lineTo(X(306), oy); x.stroke();
+    x.strokeStyle = completa ? OURO : TINTA; x.lineWidth = 8; x.lineCap = 'butt';
+    x.beginPath(); x.moveTo(X(14), oy - 20 * s); x.lineTo(X(14), oy + 20 * s); x.moveTo(X(5), oy - 8 * s); x.lineTo(X(23), oy - 8 * s); x.stroke();
+    for (let i = 0; i < 10; i++) {
+      const acesa = i < acesas;
+      x.beginPath(); x.arc(X(58 + i * 23), oy, 6 * s, 0, Math.PI * 2);
+      x.fillStyle = acesa ? OURO : FUNDO; x.fill();
+      x.lineWidth = 4; x.strokeStyle = acesa ? OURO : MUDO; x.stroke();
+    }
+    x.beginPath(); x.arc(X(296), oy, 10.5 * s, 0, Math.PI * 2);
+    x.fillStyle = FUNDO; x.fill();
+    x.fillStyle = completa ? OURO : 'rgba(242,194,48,0.14)'; x.fill();
+    x.lineWidth = 4; x.strokeStyle = OURO; x.stroke();
+
+    x.font = `italic 400 58px ${SERIF}`; x.fillStyle = MUDO;
+    x.fillText(`${total} ${total === 1 ? 'terço rezado' : 'terços rezados'}${recorde > seq ? ` · recorde de ${recorde}` : ''}`, W / 2, 1600);
+  } else {
+    const { dataTxt, grau, nome, bio } = dados;
+    rotulo(dataTxt, 470);
+    rotulo(grau, 540, OURO, 32);
+    let tam = 150, linhas;
+    do { x.font = `400 ${tam}px ${SERIF}`; linhas = quebrar(x, nome, W - 220); tam -= 8; } while (linhas.length > 4 && tam > 80);
+    tam += 8;
+    x.fillStyle = TINTA;
+    linhas.forEach((l, i) => x.fillText(l, W / 2, 720 + i * tam * 1.02));
+    const yBio = 720 + linhas.length * tam * 1.02 + 40;
+    x.strokeStyle = 'rgba(241,234,216,0.2)'; x.lineWidth = 2; x.beginPath(); x.moveTo(W / 2 - 60, yBio); x.lineTo(W / 2 + 60, yBio); x.stroke();
+    x.font = `400 50px ${SERIF}`; x.fillStyle = MUDO;
+    const lb = quebrar(x, bio, W - 240).slice(0, 7);
+    if (lb.length === 7 && quebrar(x, bio, W - 240).length > 7) lb[6] = lb[6].replace(/[ ,.;:]*\S*$/, '…');
+    lb.forEach((l, i) => x.fillText(l, W / 2, yBio + 90 + i * 70));
+  }
+
+  // rodapé
+  x.fillStyle = TINTA; x.font = `600 34px ${SANS}`; espaco(6); x.fillText('REZE COM O LUMEN', W / 2 + 3, 1780); espaco(0);
+  x.font = `400 32px ${SANS}`; x.fillStyle = MUDO; x.fillText('nndmarques.github.io/lumen', W / 2, 1836);
+  return c;
+}
+
+async function cardOfensiva() {
+  const of = ofensiva(diario());
+  if (of.seq < 1) return toast('Reze o terço para acender a primeira conta');
+  toast('Preparando o card…');
+  const c = await desenharCard('ofensiva', { seq: of.seq, total: store.get('tercosRezados', 0), recorde: of.recorde });
+  const r = await compartilharImagem(c, `lumen-ofensiva-${of.seq}`, `Ofensiva de ${of.seq} ${of.seq === 1 ? 'dia' : 'dias'} rezando o terço, com o Lumen.`);
+  if (r === 'baixado') toast('Card salvo no seu aparelho');
+}
+
+async function cardSanto(n) {
+  const D = dia(n);
+  const c0 = D.destaque;
+  if (!c0) return toast('Não há santo neste dia para compartilhar');
+  toast('Preparando o card…');
+  const c = await desenharCard('santo', {
+    dataTxt: `${D.d} de ${MESES[D.m - 1]} · ${DIAS[data(n).w]}`,
+    grau: GRAUS[c0.g],
+    nome: c0.n,
+    bio: c0.b,
+  });
+  const r = await compartilharImagem(c, `lumen-${iso(n)}`, `${c0.n}. Calendário dos santos no Lumen.`);
+  if (r === 'baixado') toast('Card salvo no seu aparelho');
 }
 
 // ---------- Mais ----------
@@ -1149,6 +1347,26 @@ function telaMais() {
       <div class="choices">${Object.entries(LINGUAS).map(([k, v]) => `<button class="choice" data-l1="${k}">${v.nome}</button>`).join('')}</div>
       <p class="eyebrow" style="margin-top:16px">Secundária</p>
       <div class="choices">${Object.entries(LINGUAS).map(([k, v]) => `<button class="choice" data-l2="${k}">${v.nome}</button>`).join('')}</div>
+    </div>
+    <div ${rc('setting')}>
+      <span class="lbl">Lembrete do terço</span>
+      <p class="muted small" id="lembre-estado"></p>
+      <div class="lembre-linha">
+        <input type="time" id="lembre-hora" class="campo" aria-label="Hora do lembrete">
+        <button class="btn solid" id="lembre-salvar">Salvar</button>
+        <button class="btn ghost" id="lembre-off" hidden>Desativar</button>
+      </div>
+      <button class="btn block" id="lembre-cal" hidden style="margin-top:10px">Adicionar ao calendário do celular</button>
+      <button class="btn ghost block" id="lembre-notif" hidden style="margin-top:10px">Ativar avisos do navegador</button>
+      <p class="muted small" style="margin-top:10px">O aviso do calendário toca mesmo com o app fechado. Já o do navegador só funciona com o Lumen aberto ou em segundo plano. Na aba Hoje, o app também avisa depois da hora marcada.</p>
+    </div>
+    <div ${rc('setting')}>
+      <span class="lbl">Lembrete de confissão</span>
+      <p class="muted small">Avisar quando passar este tempo desde a última confissão.</p>
+      <div class="choices" style="margin-top:10px">
+        ${[[0, 'Desativado'], [15, '15 dias'], [30, '30 dias'], [45, '45 dias'], [60, '60 dias']].map(([v, t]) => `<button class="choice" data-conf="${v}">${t}</button>`).join('')}
+      </div>
+      <button class="btn block" id="conf-cal" hidden style="margin-top:12px">Adicionar a próxima confissão ao calendário</button>
     </div>
     <div ${rc('setting')}>
       <span class="lbl">Seus números</span>
@@ -1199,9 +1417,67 @@ function telaMais() {
     toast(`Oração em ${LINGUAS[l1].nome.toLowerCase()} e ${LINGUAS[l2].nome.toLowerCase()}`);
   }));
 
+  // lembrete do terço
+  const $hora = $view.querySelector('#lembre-hora');
+  const $notif = $view.querySelector('#lembre-notif');
+  const mostrarLembrete = () => {
+    const h = store.get('lembreHora', null);
+    $hora.value = h || '19:00';
+    $view.querySelector('#lembre-estado').textContent = h ? `Lembrete diário às ${h}.` : 'Nenhum lembrete configurado.';
+    $view.querySelector('#lembre-off').hidden = !h;
+    $view.querySelector('#lembre-cal').hidden = !h;
+    $notif.hidden = !(h && typeof Notification !== 'undefined' && Notification.permission === 'default');
+  };
+  mostrarLembrete();
+  $view.querySelector('#lembre-salvar').addEventListener('click', () => {
+    if (!$hora.value) return toast('Escolha uma hora');
+    store.set('lembreHora', $hora.value);
+    mostrarLembrete(); agendarAvisos();
+    toast(`Lembrete salvo para ${$hora.value}`);
+  });
+  $view.querySelector('#lembre-off').addEventListener('click', () => {
+    store.del('lembreHora'); clearTimeout(avisoTimer);
+    mostrarLembrete(); toast('Lembrete desativado');
+  });
+  $view.querySelector('#lembre-cal').addEventListener('click', () => {
+    const h = store.get('lembreHora', null);
+    if (!h) return;
+    const [hh, mm] = h.split(':').map(Number);
+    const ini = new Date(); ini.setHours(hh, mm, 0, 0);
+    baixarEvento({ nome: 'lumen-terco', titulo: 'Hora do terço', descricao: 'Um momento de oração. Abra o Lumen para rezar o terço de hoje.', inicio: ini, repete: true });
+    toast('Abra o arquivo para adicionar ao calendário');
+  });
+  $notif.addEventListener('click', async () => {
+    const r = await Notification.requestPermission();
+    mostrarLembrete(); agendarAvisos();
+    toast(r === 'granted' ? 'Avisos do navegador ativados' : 'Sem permissão para avisar');
+  });
+
+  // lembrete de confissão
+  const marcarConf = () => {
+    const v = store.get('lembreConf', 0);
+    $view.querySelectorAll('[data-conf]').forEach((b) => b.setAttribute('aria-pressed', +b.dataset.conf === v));
+    $view.querySelector('#conf-cal').hidden = !(v && store.get('ultimaConfissao', null));
+  };
+  marcarConf();
+  $view.querySelectorAll('[data-conf]').forEach((b) => b.addEventListener('click', () => {
+    store.set('lembreConf', +b.dataset.conf);
+    marcarConf();
+    toast(+b.dataset.conf ? `Aviso depois de ${b.dataset.conf} dias` : 'Aviso de confissão desativado');
+  }));
+  $view.querySelector('#conf-cal').addEventListener('click', () => {
+    const v = store.get('lembreConf', 0);
+    const ult = new Date(store.get('ultimaConfissao', null));
+    if (!v || isNaN(ult)) return;
+    const quando = new Date(ult); quando.setDate(quando.getDate() + v); quando.setHours(9, 0, 0, 0);
+    if (quando < new Date()) { const amanha = new Date(); amanha.setDate(amanha.getDate() + 1); amanha.setHours(9, 0, 0, 0); quando.setTime(amanha.getTime()); }
+    baixarEvento({ nome: 'lumen-confissao', titulo: 'Confissão', descricao: `Já faz ${v} dias da última confissão. Abra o Lumen para fazer o exame de consciência.`, inicio: quando, repete: false });
+    toast('Abra o arquivo para adicionar ao calendário');
+  });
+
   $view.querySelector('#apagar').addEventListener('click', () => {
     if (!confirm('Apagar a lista, as anotações, a data da última confissão e o progresso do terço?')) return;
-    ['marcados', 'nota', 'ultimaConfissao', 'tercoProgresso', 'tercosRezados', 'tercoHoje', 'tercoDiario', 'ofensivaRecorde', 'estados'].forEach(store.del);
+    ['marcados', 'nota', 'ultimaConfissao', 'tercoProgresso', 'tercosRezados', 'tercoHoje', 'tercoDiario', 'ofensivaRecorde', 'lembreHora', 'lembreConf', 'estados'].forEach(store.del);
     toast('Dados apagados');
     telaMais();
   });
@@ -1246,6 +1522,7 @@ window.addEventListener('resize', moverIndicador);
 document.fonts && document.fonts.ready.then(moverIndicador);
 aplicarTema(temaAtual());
 rota();
+agendarAvisos();
 
 if ('serviceWorker' in navigator && location.protocol !== 'file:') {
   navigator.serviceWorker.register('sw.js').catch(() => {});

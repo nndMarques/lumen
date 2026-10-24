@@ -14,6 +14,10 @@
   --ease: cubic-bezier(0.22, 1, 0.36, 1);
   --lit-g: #6f9a4a; --lit-v: #9a72c4; --lit-r: #d4493f; --lit-p: #dd96ae; --lit-w: #f1ead8;
   --grain: none;
+  --rule-h: 1px; --rule-b: 0;
+  --tab-bg: var(--bg); --tab-borda: 1px solid var(--line);
+  --btn-moldura: none;
+  --sel-bg: var(--accent); --sel-ink: var(--accent-ink);
   --fundo-painel: rgba(0, 0, 0, 0.45);
   --cal-santo: #f2c230; --cal-festa: #d4493f;
   color-scheme: dark;
@@ -30,6 +34,9 @@
     --accent-ink: #f3e6c8;
     --accent-soft: rgba(122, 31, 43, 0.11);
     --lit-g: #3d6a2c; --lit-v: #5b3478; --lit-r: #a3262a; --lit-p: #b8607e; --lit-w: #fbf4e2;
+    --rule-h: 5px; --rule-b: 1px solid var(--line);
+    --tab-bg: #dfc896; --tab-borda: 4px double var(--line);
+    --btn-moldura: inset 0 0 0 3px var(--accent), inset 0 0 0 4px rgba(243, 230, 200, 0.55);
     --fundo-painel: rgba(42, 25, 17, 0.22);
   --cal-santo: #b07c10; --cal-festa: #a3262a;
     --grain: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.8' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 .32 0 0 0 0 .2 0 0 0 0 .1 0 0 0 .5 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
@@ -47,6 +54,9 @@
   --accent-ink: #f3e6c8;
   --accent-soft: rgba(122, 31, 43, 0.11);
   --lit-g: #3d6a2c; --lit-v: #5b3478; --lit-r: #a3262a; --lit-p: #b8607e; --lit-w: #fbf4e2;
+  --rule-h: 5px; --rule-b: 1px solid var(--line);
+  --tab-bg: #dfc896; --tab-borda: 4px double var(--line);
+  --btn-moldura: inset 0 0 0 3px var(--accent), inset 0 0 0 4px rgba(243, 230, 200, 0.55);
   --fundo-painel: rgba(42, 25, 17, 0.22);
   --cal-santo: #b07c10; --cal-festa: #a3262a;
   --grain: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.8' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 .32 0 0 0 0 .2 0 0 0 0 .1 0 0 0 .5 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
@@ -81,6 +91,8 @@ body::before {
   z-index: 60;
 }
 a { color: inherit; }
+::selection { background: var(--sel-bg); color: var(--sel-ink); }
+html { scrollbar-color: var(--muted) transparent; }
 button { font: inherit; color: inherit; }
 
 .view {
@@ -126,7 +138,7 @@ h1 em, h2 em, h3 em { color: var(--accent); }
 .small { font-size: 13px; }
 p { margin: 0 0 12px; }
 
-.rule { height: 1px; background: var(--line); border: 0; margin: 28px 0; }
+.rule { height: var(--rule-h); background: none; border: 0; border-top: 1px solid var(--line); border-bottom: var(--rule-b); margin: 28px 0; }
 /* uma lista logo depois de um divisor não repete a linha */
 .rule + .rows { border-top: 0; }
 
@@ -177,7 +189,7 @@ p { margin: 0 0 12px; }
   transition: transform 0.15s var(--ease), background-color 0.25s, color 0.25s;
 }
 .btn:active { transform: scale(0.97); }
-.btn.solid { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+.btn.solid { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); box-shadow: var(--btn-moldura); }
 .btn.block { width: 100%; }
 .btn.ghost { border-color: var(--line); }
 .btn[disabled] { opacity: 0.35; pointer-events: none; }
@@ -365,6 +377,21 @@ p { margin: 0 0 12px; }
 .misterio-op.aberto .opcoes-in .btn { opacity: 1; transform: none; }
 .misterio-op.aberto .opcoes-in .btn + .btn { transition-delay: 0.06s; }
 .misterio-op.rezado [data-marcar], .misterio-op:not(.rezado) [data-desmarcar] { display: none; }
+
+/* Avisos na aba Hoje */
+.avisos { display: grid; gap: 10px; margin-bottom: 22px; }
+.aviso { display: flex; align-items: center; gap: 14px; padding: 12px 14px; border-left: 3px solid var(--accent); background: var(--accent-soft); text-decoration: none; }
+.aviso span { flex: 1; font-family: var(--serif); font-size: 19px; line-height: 1.25; }
+.aviso b { display: block; font-family: var(--sans); font-size: 11px; font-weight: 600; letter-spacing: 0.14em; text-transform: uppercase; color: var(--accent); margin-bottom: 2px; }
+.aviso .arrow { flex: none; width: 18px; height: 18px; stroke: var(--accent); fill: none; stroke-width: 1.5; }
+.counter.atrasada .big { color: var(--accent); }
+
+/* Lembretes em Ajustes */
+.lembre-linha { display: flex; gap: 10px; align-items: stretch; margin-top: 10px; flex-wrap: wrap; }
+.campo { font: inherit; font-family: var(--serif); font-size: 24px; color: var(--ink); background: transparent; border: 1px solid var(--line); border-radius: 2px; padding: 8px 12px; min-height: 52px; color-scheme: inherit; }
+.campo:focus { outline: none; border-color: var(--accent); }
+.lembre-linha .btn { min-height: 52px; }
+[hidden] { display: none !important; }
 
 /* Ofensiva: um terço que ganha uma conta por dia seguido */
 .ofensiva { padding-bottom: 6px; }
@@ -639,8 +666,8 @@ p { margin: 0 0 12px; }
   z-index: 10;
   display: flex; justify-content: center;
   padding-bottom: env(safe-area-inset-bottom);
-  background: var(--bg);
-  border-top: 1px solid var(--line);
+  background: var(--tab-bg);
+  border-top: var(--tab-borda);
   transition: background-color 0.4s var(--ease);
 }
 .tabbar::before {

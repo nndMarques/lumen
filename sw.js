@@ -1,5 +1,5 @@
 // Guarda o app para funcionar sem internet (ex.: dentro da igreja).
-const CACHE = 'lumen-v12';
+const CACHE = 'lumen-v14';
 const ARQUIVOS = [
   './', 'index.html', 'css/style.css', 'js/app.js', 'js/data/exames.js', 'js/data/terco.js', 'js/data/santos.js', 'js/data/leituras.js', 'js/liturgia.js', 'js/rosario.js',
   'manifest.webmanifest', 'icons/icon.svg', 'icons/icon-192.png', 'icons/icon-512.png', 'icons/icon-180.png',
@@ -27,4 +27,14 @@ self.addEventListener('fetch', (e) => {
       })
       .catch(() => caches.match(e.request).then((r) => r || caches.match('index.html')))
   );
+});
+
+// Tocar no aviso de oração abre o Lumen no terço.
+self.addEventListener('notificationclick', (e) => {
+  e.notification.close();
+  e.waitUntil(self.clients.matchAll({ type: 'window' }).then((cs) => {
+    const c = cs.find((x) => 'focus' in x);
+    if (c) { c.navigate('./#/terco'); return c.focus(); }
+    return self.clients.openWindow('./#/terco');
+  }));
 });
