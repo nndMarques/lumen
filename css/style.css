@@ -17,6 +17,9 @@
   --rule-h: 1px; --rule-b: 0;
   --tab-bg: var(--bg); --tab-borda: 1px solid var(--line);
   --btn-moldura: none;
+  --eyebrow-cor: var(--muted);
+  --pag-borda: none;
+  --tab-ink: var(--ink); --tab-mudo: var(--muted); --tab-ativo: var(--accent); --tab-ind: var(--accent); --tab-em: var(--accent);
   --sel-bg: var(--accent); --sel-ink: var(--accent-ink);
   --fundo-painel: rgba(0, 0, 0, 0.45);
   --cal-santo: #f2c230; --cal-festa: #d4493f;
@@ -35,8 +38,11 @@
     --accent-soft: rgba(122, 31, 43, 0.11);
     --lit-g: #3d6a2c; --lit-v: #5b3478; --lit-r: #a3262a; --lit-p: #b8607e; --lit-w: #fbf4e2;
     --rule-h: 5px; --rule-b: 1px solid var(--line);
-    --tab-bg: #dfc896; --tab-borda: 4px double var(--line);
+    --tab-bg: #7a1f2b; --tab-borda: 4px double rgba(246, 234, 208, 0.4);
     --btn-moldura: inset 0 0 0 3px var(--accent), inset 0 0 0 4px rgba(243, 230, 200, 0.55);
+    --eyebrow-cor: var(--accent);
+    --pag-borda: 3px double rgba(122, 31, 43, 0.5);
+    --tab-ink: #f6ead0; --tab-mudo: rgba(246, 234, 208, 0.62); --tab-ativo: #e8c15a; --tab-ind: #e8c15a; --tab-em: #e8c15a;
     --fundo-painel: rgba(42, 25, 17, 0.22);
   --cal-santo: #b07c10; --cal-festa: #a3262a;
     --grain: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.8' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 .32 0 0 0 0 .2 0 0 0 0 .1 0 0 0 .5 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
@@ -55,8 +61,11 @@
   --accent-soft: rgba(122, 31, 43, 0.11);
   --lit-g: #3d6a2c; --lit-v: #5b3478; --lit-r: #a3262a; --lit-p: #b8607e; --lit-w: #fbf4e2;
   --rule-h: 5px; --rule-b: 1px solid var(--line);
-  --tab-bg: #dfc896; --tab-borda: 4px double var(--line);
+  --tab-bg: #7a1f2b; --tab-borda: 4px double rgba(246, 234, 208, 0.4);
   --btn-moldura: inset 0 0 0 3px var(--accent), inset 0 0 0 4px rgba(243, 230, 200, 0.55);
+  --eyebrow-cor: var(--accent);
+  --pag-borda: 3px double rgba(122, 31, 43, 0.5);
+  --tab-ink: #f6ead0; --tab-mudo: rgba(246, 234, 208, 0.62); --tab-ativo: #e8c15a; --tab-ind: #e8c15a; --tab-em: #e8c15a;
   --fundo-painel: rgba(42, 25, 17, 0.22);
   --cal-santo: #b07c10; --cal-festa: #a3262a;
   --grain: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.8' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 .32 0 0 0 0 .2 0 0 0 0 .1 0 0 0 .5 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
@@ -89,6 +98,11 @@ body::before {
   opacity: 0.55;
   pointer-events: none;
   z-index: 60;
+}
+/* moldura de página, só no tema claro */
+body::after {
+  content: ""; position: fixed; inset: 7px; border: var(--pag-borda);
+  pointer-events: none; z-index: 59;
 }
 a { color: inherit; }
 ::selection { background: var(--sel-bg); color: var(--sel-ink); }
@@ -124,7 +138,7 @@ button { font: inherit; color: inherit; }
   font-weight: 600;
   letter-spacing: 0.16em;
   text-transform: uppercase;
-  color: var(--muted);
+  color: var(--eyebrow-cor);
   margin: 0 0 10px;
 }
 .eyebrow .dot { color: var(--accent); }
@@ -675,7 +689,7 @@ p { margin: 0 0 12px; }
   content: "";
   position: absolute; top: -1px; height: 2px;
   width: var(--ind-w, 0); left: var(--ind-x, 0);
-  background: var(--accent);
+  background: var(--tab-ind);
   transition: left 0.45s var(--ease), width 0.45s var(--ease);
 }
 .tabbar a {
@@ -683,13 +697,13 @@ p { margin: 0 0 12px; }
   height: var(--tab-h);
   display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px;
   text-decoration: none;
-  color: var(--muted);
+  color: var(--tab-mudo);
   font-size: 11px; font-weight: 500; letter-spacing: 0.04em;
   transition: color 0.25s;
 }
 .tabbar a svg { width: 24px; height: 24px; fill: none; stroke: currentColor; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; transition: transform 0.35s var(--ease); }
-.tabbar a.active { color: var(--ink); }
-.tabbar a.active svg { stroke: var(--accent); transform: translateY(-2px); }
+.tabbar a.active { color: var(--tab-ink); }
+.tabbar a.active svg { stroke: var(--tab-ativo); transform: translateY(-2px); }
 .tabbar a:active svg { transform: scale(0.88); }
 
 /* ---------- Computador: barra lateral e conteúdo mais largo ---------- */
@@ -743,7 +757,7 @@ p { margin: 0 0 12px; }
 }
 .tabbar .brand {
   display: none;
-  font-family: var(--serif); font-size: 34px; color: var(--ink);
+  font-family: var(--serif); font-size: 34px; color: var(--tab-ink);
   padding: 0 12px 28px; text-decoration: none;
 }
-.tabbar .brand em { color: var(--accent); }
+.tabbar .brand em { color: var(--tab-em); }
