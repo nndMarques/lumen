@@ -56,6 +56,9 @@
 /* ---------- Base ---------- */
 * { box-sizing: border-box; }
 html, body { margin: 0; }
+/* nada pode empurrar a página para os lados (as animações de zoom e de deslizar passam um pouco da tela) */
+html, body { overflow-x: clip; }
+@supports not (overflow: clip) { body { overflow-x: hidden; } }
 body {
   background: var(--bg);
   color: var(--ink);
@@ -547,6 +550,7 @@ p { margin: 0 0 12px; }
 .cal-legenda span { display: inline-flex; align-items: center; gap: 8px; }
 
 .dia-view .grau { color: var(--accent); }
+.dia-view { touch-action: pan-y; }
 .dv-top { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 26px; }
 .dv-nav { display: flex; gap: 8px; }
 .dv-nome { font-size: clamp(36px, 10vw, 52px); line-height: 1.02; }
