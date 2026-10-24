@@ -94,6 +94,7 @@ function telaInicio() {
   const n = totalMarcados();
   const L = dia(hojeNum());
   const santo = L.destaque;
+  const ofen = ofensiva(diario());
   const lh = leiturasDo(hojeNum());
   const ev = lh && lh.ev;
 
@@ -123,7 +124,8 @@ function telaInicio() {
     <h2 ${r()}>${M.pt.replace('Mistérios ', 'Mistérios <em>')}</em></h2>
     <ol ${rc('mystery-list')}>${M.itens.map((it) => `<li>${it.pt}</li>`).join('')}</ol>
     <div ${r()} style="margin-top:18px"><a class="btn solid block" href="#/terco/rezar/${conj}">Rezar agora</a></div>
-    ${rezadosHoje().length ? `<p ${rc('feito-hoje')}>${ICON_TICK} Você já rezou o terço hoje.</p>` : ''}
+    ${rezadosHoje().length ? `<p ${rc('feito-hoje')}>${ICON_TICK} Você já rezou o terço hoje${ofen.seq > 1 ? ` · ofensiva de ${ofen.seq} dias` : ''}.</p>`
+      : ofen.risco ? `<p ${rc('feito-hoje risco')}>Ofensiva de ${ofen.seq} ${ofen.seq === 1 ? 'dia' : 'dias'} · reze hoje para mantê-la.</p>` : ''}
     <hr ${rc('rule')}>
     ${santo ? `
       <p ${r()}><span class="eyebrow">Hoje a Igreja celebra <span class="dot">·</span> ${GRAUS[santo.g]}</span></p>
@@ -396,6 +398,7 @@ function registrarTerco(conjunto) {
   d[hojeKey()] = (d[hojeKey()] || 0) + valeTercos(conjunto);
   store.set('tercoDiario', d);
   store.set('tercoHoje', { dia: hojeKey(), conjuntos: [...rezadosHoje(), conjunto] });
+  store.set('ofensivaRecorde', ofensiva(d).recorde);
   return feitos;
 }
 
@@ -420,19 +423,73 @@ function rezadosHoje() {
   return h && h.dia === hojeKey() ? h.conjuntos : [];
 }
 
-// Dias seguidos rezando. Se ainda não rezou hoje, a sequência de ontem continua valendo.
-function diasSeguidos(d) {
-  const dia = new Date();
-  if (!d[chaveDia(dia)]) dia.setDate(dia.getDate() - 1);
-  let n = 0;
-  while (d[chaveDia(dia)]) { n++; dia.setDate(dia.getDate() - 1); }
-  return n;
+// ---------- Ofensiva: dias seguidos rezando ----------
+const METAS_OFENSIVA = [3, 7, 14, 30, 60, 100, 200, 365];
+
+const diaDaChave = (k) => { const [y, m, d] = k.split('-').map(Number); return Math.round(Date.UTC(y, m - 1, d) / 86400000); };
+
+// seq: dias seguidos até hoje (se ainda não rezou hoje, vale a sequência até ontem);
+// risco: há sequência, mas hoje ainda não foi rezado; recorde: a maior sequência já feita.
+function ofensiva(d) {
+  const hoje = new Date();
+  const feitoHoje = !!d[chaveDia(hoje)];
+  const dia = new Date(hoje);
+  if (!feitoHoje) dia.setDate(dia.getDate() - 1);
+  let seq = 0;
+  while (d[chaveDia(dia)]) { seq++; dia.setDate(dia.getDate() - 1); }
+  const dias = Object.keys(d).filter((k) => d[k] > 0).map(diaDaChave).sort((x, y) => x - y);
+  let recorde = 0, corrida = 0;
+  dias.forEach((n, i) => { corrida = i && n === dias[i - 1] + 1 ? corrida + 1 : 1; recorde = Math.max(recorde, corrida); });
+  recorde = Math.max(recorde, store.get('ofensivaRecorde', 0), seq);
+  return { seq, feitoHoje, risco: seq > 0 && !feitoHoje, recorde };
+}
+
+// O terço da ofensiva: uma dezena de contas pequenas e uma grande. Cada dia seguido acende uma conta;
+// ao completar dez, acende a conta grande e a cruz brilha.
+function ofensivaSVG(of, animar = true) {
+  const { seq, feitoHoje, risco } = of;
+  const completa = seq > 0 && seq % 10 === 0;
+  const acesas = completa ? 10 : seq % 10;
+  const X = (i) => 58 + i * 23;
+  let contas = '';
+  for (let i = 0; i < 10; i++) {
+    const acesa = i < acesas;
+    const hoje = acesa && feitoHoje && i === acesas - 1;
+    const emRisco = risco && !completa && i === acesas;
+    contas += `<circle class="b${acesa ? ' lit' : ''}${hoje ? ' pop' : ''}${emRisco ? ' risco' : ''}" style="--k:${i}" cx="${X(i)}" cy="32" r="6"/>`;
+  }
+  const grande = `<circle class="b grande${completa ? ' lit' : ''}${completa && feitoHoje ? ' pop' : ''}" style="--k:10" cx="296" cy="32" r="10.5"/>`;
+  return `<svg class="of-svg${animar ? ' anima' : ''}" viewBox="0 0 320 64" role="img" aria-label="Terço da ofensiva: ${acesas} de 10 contas acesas${completa ? ', dezena completa' : ''}">
+    <path class="fio" d="M26 32H306"/>
+    <g class="cruz${completa ? ' brilha' : ''}"><path d="M14 12v40M5 24h18"/></g>
+    ${contas}${grande}
+  </svg>`;
+}
+
+function ofensivaHTML(of) {
+  const meta = METAS_OFENSIVA.find((m) => m > of.seq);
+  const dezena = Math.floor(Math.max(of.seq - 1, 0) / 10) + 1;
+  let estado;
+  if (of.seq === 0) estado = of.recorde > 0 ? `Comece uma nova ofensiva hoje. Seu recorde é de ${of.recorde} ${of.recorde === 1 ? 'dia' : 'dias'}.` : 'Reze o terço hoje para acender a primeira conta.';
+  else if (of.risco) estado = 'Reze hoje para manter a sua ofensiva.';
+  else estado = 'Ofensiva mantida hoje. Que Nossa Senhora te acompanhe.';
+  return `
+    <div class="ofensiva${of.risco ? ' em-risco' : ''}">
+      <div class="of-top">
+        <span class="of-n" data-seq>${of.seq}</span>
+        <span class="of-l">${of.seq === 1 ? 'dia seguido' : 'dias seguidos'}<small>ofensiva do terço</small></span>
+        ${of.recorde > 0 ? `<span class="of-rec">recorde<b>${of.recorde}</b></span>` : ''}
+      </div>
+      ${ofensivaSVG(of)}
+      <p class="of-estado">${estado}</p>
+      ${meta ? `<p class="muted small">${of.seq > 0 ? `${dezena}ª dezena · ` : ''}próxima meta: ${meta} dias${of.seq > 0 ? ` (faltam ${meta - of.seq})` : ''}</p>` : ''}
+    </div>`;
 }
 
 function constanciaHTML() {
   const total = store.get('tercosRezados', 0);
   const d = diario();
-  const seq = diasSeguidos(d);
+  const of = ofensiva(d);
   const prox = MARCOS.find((m) => m.n > total);
   const ant = [...MARCOS].reverse().find((m) => m.n <= total);
   const semana = [];
@@ -444,10 +501,7 @@ function constanciaHTML() {
   const base = ant ? ant.n : 0;
   const pct = prox ? Math.round(((total - base) / (prox.n - base)) * 100) : 100;
   return `
-    <div class="c-top">
-      <div class="c-total"><span class="big" data-total>${total}</span><span class="lbl">${total === 1 ? 'terço rezado' : 'terços rezados'}</span></div>
-      <div class="c-seq"><span class="big2">${seq}</span><span class="lbl">${seq === 1 ? 'dia seguido' : 'dias seguidos'}</span></div>
-    </div>
+    ${ofensivaHTML(of)}
     <ol class="semana" aria-label="Últimos sete dias">
       ${semana.map((s) => `<li class="${s.feito ? 'feito' : ''}${s.hoje ? ' hoje' : ''}"><i></i><span>${'DSTQQSS'[s.w]}</span></li>`).join('')}
     </ol>
@@ -458,6 +512,9 @@ function constanciaHTML() {
         <div class="progress"><i style="width:${pct}%"></i></div>
         <p class="muted small" style="margin-top:8px">${prox.n - total === 1 ? 'Falta 1 terço.' : `Faltam ${prox.n - total} terços.`}</p>
       </div>` : `<p class="pm-t" style="margin-top:20px">Todos os marcos alcançados. Que Nossa Senhora te guarde.</p>`}
+    <div class="c-top c-total-linha">
+      <div class="c-total"><span class="big" data-total>${total}</span><span class="lbl">${total === 1 ? 'terço rezado' : 'terços rezados'}</span></div>
+    </div>
     <ul class="marcos" aria-label="Marcos">
       ${MARCOS.map((m) => `<li class="${total >= m.n ? 'ganho' : ''}" data-marco="${m.n}" title="${m.t}"><span>${m.n}</span></li>`).join('')}
     </ul>`;
@@ -510,17 +567,21 @@ function telaTerco() {
   marcarFeitos();
 
   // Redesenha a constância, contando o número até o novo total.
-  function atualizarConstancia(de, novoMarco) {
+  function atualizarConstancia(de, novoMarco, deSeq) {
     $const.innerHTML = constanciaHTML();
-    const $n = $const.querySelector('[data-total]');
-    const ate = +$n.textContent;
-    const t0 = performance.now();
-    const passo = (t) => {
-      const p = Math.min(1, (t - t0) / 600);
-      $n.textContent = Math.round(de + (ate - de) * (1 - Math.pow(1 - p, 3)));
-      if (p < 1) requestAnimationFrame(passo);
+    const contar = ($n, ini) => {
+      if (!$n) return;
+      const ate = +$n.textContent;
+      const t0 = performance.now();
+      const passo = (t) => {
+        const p = Math.min(1, (t - t0) / 600);
+        $n.textContent = Math.round(ini + (ate - ini) * (1 - Math.pow(1 - p, 3)));
+        if (p < 1) requestAnimationFrame(passo);
+      };
+      requestAnimationFrame(passo);
     };
-    requestAnimationFrame(passo);
+    contar($const.querySelector('[data-total]'), de);
+    contar($const.querySelector('[data-seq]'), deSeq === undefined ? +$const.querySelector('[data-seq]').textContent : deSeq);
     $const.classList.remove('pulso'); void $const.offsetWidth; $const.classList.add('pulso');
     if (novoMarco) {
       const m = $const.querySelector(`[data-marco="${novoMarco.n}"]`);
@@ -541,20 +602,24 @@ function telaTerco() {
     });
     li.querySelector('[data-marcar]').addEventListener('click', () => {
       const antes = store.get('tercosRezados', 0);
+      const seqAntes = ofensiva(diario()).seq;
       const feitos = registrarTerco(li.dataset.c);
+      const seqDepois = ofensiva(diario()).seq;
       const marco = [...MARCOS].reverse().find((m) => m.n > antes && m.n <= feitos);
+      const meta = seqDepois > seqAntes && METAS_OFENSIVA.includes(seqDepois);
       vibrar([20, 60, 20]);
       marcarFeitos();
-      atualizarConstancia(antes, marco);
-      toast(marco ? `Novo marco: ${marco.t}` : li.dataset.c === 'rosario' ? `Rosário rezado · ${feitos} terços` : `${feitos} terços rezados`);
+      atualizarConstancia(antes, marco, seqAntes);
+      toast(meta ? `Ofensiva de ${seqDepois} dias` : marco ? `Novo marco: ${marco.t}` : seqDepois > seqAntes ? `Ofensiva: ${seqDepois} ${seqDepois === 1 ? 'dia' : 'dias'}` : li.dataset.c === 'rosario' ? `Rosário rezado · ${feitos} terços` : `${feitos} terços rezados`);
       setTimeout(() => fecharOpcoes(li), 700);
     });
     li.querySelector('[data-desmarcar]').addEventListener('click', () => {
       const antes = store.get('tercosRezados', 0);
+      const seqAntes = ofensiva(diario()).seq;
       desmarcarTerco(li.dataset.c);
       vibrar(10);
       marcarFeitos();
-      atualizarConstancia(antes);
+      atualizarConstancia(antes, undefined, seqAntes);
       toast('Marcação desfeita');
       setTimeout(() => fecharOpcoes(li), 500);
     });
@@ -763,15 +828,23 @@ function telaRezar(conjunto) {
 
   function concluir() {
     store.del('tercoProgresso');
+    const seqAntes = ofensiva(diario()).seq;
     const feitos = registrarTerco(conjunto);
-    vibrar([20, 60, 20]);
+    const of = ofensiva(diario());
+    const subiu = of.seq > seqAntes;
+    const meta = subiu && METAS_OFENSIVA.includes(of.seq);
+    vibrar(meta ? [30, 60, 30, 60, 60] : [20, 60, 20]);
     document.removeEventListener('keydown', teclas);
     $view.innerHTML = `
       <div class="absolvo">
         <svg class="cross" viewBox="0 0 54 80"><path d="M27 2v76M6 24h42"/></svg>
         <h2 class="rise" style="--i:3;margin-top:22px">${rosario ? 'Rosário' : 'Terço'} <em>rezado</em>.</h2>
         <p class="lead rise" style="--i:4">${feitos === 1 ? 'O primeiro terço rezado com o Lumen.' : `${feitos} terços rezados com o Lumen.`}</p>
-        <div class="rise" style="--i:5;margin-top:26px"><a class="btn block" href="#/">Voltar ao início</a></div>
+        <div class="of-final rise" style="--i:6">
+          ${ofensivaSVG(of)}
+          <p class="of-final-t">${subiu ? (of.seq === 1 ? 'Primeira conta acesa. Sua ofensiva começou.' : `Ofensiva de ${of.seq} dias${meta ? ' · nova meta!' : ''}`) : `Ofensiva de ${of.seq} ${of.seq === 1 ? 'dia' : 'dias'} mantida.`}</p>
+        </div>
+        <div class="rise" style="--i:7;margin-top:26px"><a class="btn block" href="#/">Voltar ao início</a></div>
       </div>`;
     window.scrollTo(0, 0);
   }
@@ -1128,7 +1201,7 @@ function telaMais() {
 
   $view.querySelector('#apagar').addEventListener('click', () => {
     if (!confirm('Apagar a lista, as anotações, a data da última confissão e o progresso do terço?')) return;
-    ['marcados', 'nota', 'ultimaConfissao', 'tercoProgresso', 'tercosRezados', 'tercoHoje', 'tercoDiario', 'estados'].forEach(store.del);
+    ['marcados', 'nota', 'ultimaConfissao', 'tercoProgresso', 'tercosRezados', 'tercoHoje', 'tercoDiario', 'ofensivaRecorde', 'estados'].forEach(store.del);
     toast('Dados apagados');
     telaMais();
   });

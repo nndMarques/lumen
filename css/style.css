@@ -100,6 +100,7 @@ button { font: inherit; color: inherit; }
 @keyframes rise { to { opacity: 1; transform: none; } }
 
 @media (prefers-reduced-motion: reduce) {
+  .of-svg .b, .of-svg .cruz path { animation: none !important; }
   .rise { animation: none; opacity: 1; transform: none; }
   * { transition-duration: 0s !important; }
 }
@@ -364,6 +365,36 @@ p { margin: 0 0 12px; }
 .misterio-op.aberto .opcoes-in .btn { opacity: 1; transform: none; }
 .misterio-op.aberto .opcoes-in .btn + .btn { transition-delay: 0.06s; }
 .misterio-op.rezado [data-marcar], .misterio-op:not(.rezado) [data-desmarcar] { display: none; }
+
+/* Ofensiva: um terço que ganha uma conta por dia seguido */
+.ofensiva { padding-bottom: 6px; }
+.of-top { display: flex; align-items: flex-end; gap: 14px; }
+.of-n { font-family: var(--serif); font-size: 92px; line-height: 0.82; color: var(--accent); font-variant-numeric: tabular-nums; }
+.of-l { font-size: 15px; line-height: 1.25; padding-bottom: 4px; }
+.of-l small { display: block; font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); margin-top: 2px; }
+.of-rec { margin-left: auto; text-align: right; font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); padding-bottom: 4px; }
+.of-rec b { display: block; font-family: var(--serif); font-weight: 400; font-size: 28px; letter-spacing: 0; color: var(--ink); line-height: 1; }
+.of-svg { display: block; width: 100%; max-width: 440px; height: auto; margin: 18px 0 4px; overflow: visible; }
+.of-svg .fio { fill: none; stroke: var(--muted); stroke-width: 1; }
+.of-svg .cruz path { fill: none; stroke: var(--ink); stroke-width: 3; stroke-linecap: square; transition: stroke 0.4s; }
+.of-svg .cruz.brilha path { stroke: var(--accent); animation: cruz-brilha 2.2s var(--ease) infinite; }
+@keyframes cruz-brilha { 0%, 100% { opacity: 1; } 50% { opacity: 0.45; } }
+.of-svg .b { fill: var(--bg); stroke: var(--muted); stroke-width: 1.4; transform-box: fill-box; transform-origin: center; }
+.of-svg .b.grande { stroke: var(--accent); stroke-width: 1.6; fill: var(--accent-soft); }
+.of-svg .b.lit { fill: var(--accent); stroke: var(--accent); }
+.of-svg.anima .b.lit { animation: acende 0.55s var(--ease) both; animation-delay: calc(250ms + var(--k) * 70ms); }
+@keyframes acende { 0% { fill: var(--bg); stroke: var(--muted); transform: scale(0.8); } 60% { transform: scale(1.25); } 100% { transform: scale(1); } }
+.of-svg.anima .b.lit.pop { animation: pop 0.9s var(--ease) both; animation-delay: calc(250ms + var(--k) * 70ms); filter: drop-shadow(0 0 0 transparent); }
+@keyframes pop { 0% { fill: var(--bg); stroke: var(--muted); transform: scale(0.5); } 45% { transform: scale(1.7); } 70% { transform: scale(0.95); } 100% { transform: scale(1); } }
+.of-svg .b.risco { stroke: var(--accent); stroke-dasharray: 3 2.4; animation: risco 1.8s ease-in-out infinite; }
+@keyframes risco { 0%, 100% { opacity: 1; } 50% { opacity: 0.35; } }
+.of-estado { font-family: var(--serif); font-size: 21px; line-height: 1.25; margin: 6px 0 4px; }
+.em-risco .of-estado { color: var(--accent); }
+.of-final { margin: 30px 0 0; }
+.of-final .of-svg { margin: 0 auto; }
+.of-final-t { font-family: var(--serif); font-size: 22px; margin-top: 10px; }
+.feito-hoje.risco { color: var(--accent); }
+.c-total-linha { margin-top: 24px; }
 
 /* Constância */
 .c-top { display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; }
