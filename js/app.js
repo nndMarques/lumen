@@ -1,5 +1,5 @@
 import { EXAMES, ESTADOS, PASSOS, CONTRICAO } from './data/exames.js';
-import { ORACOES, MISTERIOS, POR_DIA, INTENCOES_INICIAIS, LINGUAS, PARTES } from './data/terco.js';
+import { ORACOES, MISTERIOS, POR_DIA, INTENCOES_INICIAIS, LINGUAS, PARTES, EXPLICACOES } from './data/terco.js';
 import { rosarioSVG, ordem, oracoesDa, ORD } from './rosario.js';
 import { dia, data, hojeNum, iso, deIso, GRAUS, CORES, leiturasDo } from './liturgia.js';
 import { contaDisponivel, pushDisponivel, ligarConta, aoMudar, estado as estadoConta, enviarCodigo, confirmarCodigo, sair as sairConta, apagarConta, criarCofre, abrirCofre, esquecerCofre, sincronizar, ativarPush, desativarPush, atualizarHoraPush, mensagemDeErro } from './conta.js';
@@ -678,8 +678,32 @@ function telaAprender() {
         <div class="cp-nav"><button class="btn ghost" data-passo="-1">Anterior</button><button class="btn solid" data-passo="1">Próxima</button></div>
       </aside>
     </div>
-    <div ${r()} style="margin-top:28px"><a class="btn solid block" href="#/terco/rezar/${POR_DIA[new Date().getDay()]}">Rezar o terço de hoje</a></div>
+    <hr ${rc('rule')}>
+    <p ${r()}><span class="eyebrow">Os mistérios</span></p>
+    <h2 ${r()}>O que contemplamos em cada <em>mistério</em></h2>
+    <p ${rc('lead')} style="margin-top:12px">Ao rezar cada dezena, pensamos num momento da vida de Jesus e de Maria. São quatro conjuntos de cinco mistérios, e cada dia da semana tem o seu.</p>
+    <div ${r()} style="margin-top:16px"><div class="choices" role="group" aria-label="Ir para um conjunto de mistérios">
+      ${['gozosos', 'luminosos', 'dolorosos', 'gloriosos'].map((c) => `<button class="choice" data-ir="${c}">${MISTERIOS[c].pt.replace('Mistérios ', '')}</button>`).join('')}
+    </div></div>
+    ${['gozosos', 'luminosos', 'dolorosos', 'gloriosos'].map((c) => {
+      const M = MISTERIOS[c], E = EXPLICACOES[c];
+      return `<section ${rc('mist-set')} id="mist-${c}">
+        <p class="eyebrow">${M.dias}${c === POR_DIA[new Date().getDay()] ? ' <span class="dot">·</span> hoje' : ''}</p>
+        <h2>${M.pt.replace('Mistérios ', 'Mistérios <em>')}</em></h2>
+        <p class="mist-resumo">${E.resumo}</p>
+        <ol class="steps">
+          ${M.itens.map((it, k) => `<li><span class="n">${k + 1}</span><span class="t">${it.pt} <span class="ref">${it.ref}</span></span><span class="d">${E.itens[k]}</span></li>`).join('')}
+        </ol>
+      </section>`;
+    }).join('')}
+
+    <div ${r()} style="margin-top:34px"><a class="btn solid block" href="#/terco/rezar/${POR_DIA[new Date().getDay()]}">Rezar o terço de hoje</a></div>
   `);
+
+  $view.querySelectorAll('[data-ir]').forEach((b) => b.addEventListener('click', () => {
+    const alvo = $view.querySelector(`#mist-${b.dataset.ir}`);
+    if (alvo) alvo.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }));
 
   const $painel = $view.querySelector('.conta-painel');
   const $svg = $view.querySelector('.rosario');
