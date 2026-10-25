@@ -1285,7 +1285,7 @@ async function desenharCard(tipo, dados) {
 
   // rodapé
   x.fillStyle = TINTA; x.font = `600 34px ${SANS}`; espaco(6); x.fillText('REZE COM O LUMEN', W / 2 + 3, 1780); espaco(0);
-  x.font = `400 32px ${SANS}`; x.fillStyle = MUDO; x.fillText('nndmarques.github.io/lumen', W / 2, 1836);
+  x.font = `400 32px ${SANS}`; x.fillStyle = MUDO; x.fillText('ocatolico-marques.github.io/lumen', W / 2, 1836);
   return c;
 }
 

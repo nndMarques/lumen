@@ -37,7 +37,7 @@ O app usa um código no e-mail (sem senha). Isso funciona bem no iPhone com o ap
 <p>Se você não pediu, pode ignorar este e-mail.</p>
 ```
 
-3. Em **Authentication** > **URL Configuration**, coloque `https://nndmarques.github.io/lumen/` em *Site URL*.
+3. Em **Authentication** > **URL Configuration**, coloque `https://ocatolico-marques.github.io/lumen/` em *Site URL*.
 4. O e-mail padrão do Supabase tem limite baixo de envios por hora. Para uso real, configure um envio próprio em
    **Project settings** > **Authentication** > **SMTP** (Resend, Brevo, etc.).
 
