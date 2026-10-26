@@ -5,5 +5,5 @@ export const CONFIG = {
   supabaseUrl: '',      // ex.: https://abcdefgh.supabase.co
   supabaseAnonKey: '',  // ex.: eyJhbGciOi...
   vapidPublicKey: '',   // chave pública das notificações (ver supabase/LEIA-ME.md)
-  goatcounter: '',      // código do seu site no GoatCounter (contagem anônima de visitas)
+  goatcounter: 'fernandomarques', // código do seu site no GoatCounter (contagem anônima de visitas)
 };
