@@ -1,4 +1,5 @@
 import { EXAMES, ESTADOS, PASSOS, CONTRICAO } from './data/exames.js';
+import { contarTela, contarEvento, contagemConfigurada, contagemLigada, definirContagem, iniciarContagem } from './contagem.js';
 import { ORACOES, MISTERIOS, POR_DIA, INTENCOES_INICIAIS, LINGUAS, PARTES, EXPLICACOES } from './data/terco.js';
 import { rosarioSVG, ordem, oracoesDa, ORD } from './rosario.js';
 import { dia, data, hojeNum, iso, deIso, GRAUS, CORES, leiturasDo } from './liturgia.js';
@@ -614,6 +615,7 @@ function telaTerco() {
       const antes = store.get('tercosRezados', 0);
       const seqAntes = ofensiva(diario()).seq;
       const feitos = registrarTerco(li.dataset.c);
+      contarEvento(li.dataset.c === 'rosario' ? 'marcou-rosario' : 'marcou-terco');
       const seqDepois = ofensiva(diario()).seq;
       const marco = [...MARCOS].reverse().find((m) => m.n > antes && m.n <= feitos);
       const meta = seqDepois > seqAntes && METAS_OFENSIVA.includes(seqDepois);
@@ -864,6 +866,7 @@ function telaRezar(conjunto) {
     store.del('tercoProgresso');
     const seqAntes = ofensiva(diario()).seq;
     const feitos = registrarTerco(conjunto);
+    contarEvento(rosario ? 'rosario-guiado' : 'terco-guiado');
     const of = ofensiva(diario());
     const subiu = of.seq > seqAntes;
     const meta = subiu && METAS_OFENSIVA.includes(of.seq);
@@ -1488,9 +1491,17 @@ function telaMais() {
       <p class="muted">${tercos} ${tercos === 1 ? 'terço rezado' : 'terços rezados'} neste aparelho.</p>
     </div>
     <div ${rc('setting')} id="conta-box"><span class="lbl">Conta</span><p class="muted small">Carregando…</p></div>
+    ${contagemConfigurada() ? `<div ${rc('setting')}>
+      <span class="lbl">Contagem de visitas</span>
+      <p class="muted small">Para saber quantas pessoas usam o app, contamos de forma anônima quais telas são abertas. Sem cookies, sem guardar seu IP, sem saber quem é você. Você pode desligar.</p>
+      <div class="choices" role="group" aria-label="Contagem de visitas">
+        <button class="choice" data-contagem="1" aria-pressed="${contagemLigada()}">Permitir</button>
+        <button class="choice" data-contagem="0" aria-pressed="${!contagemLigada()}">Não contar</button>
+      </div>
+    </div>` : ''}
     <div ${rc('setting')}>
       <span class="lbl">Privacidade</span>
-      <p class="muted">Sem conta, o Lumen não tem servidor nem rastreamento: tudo fica só neste aparelho e pode ser apagado a qualquer momento. Com conta, a ofensiva e os ajustes ficam no servidor; a lista de confissão e as anotações vão cifradas com a senha do cofre, e ninguém além de você consegue lê-las. Você pode apagar a conta e tudo a qualquer hora.</p>
+      <p class="muted">Sem conta, o Lumen não tem servidor${contagemConfigurada() ? '' : ' nem rastreamento'}: tudo fica só neste aparelho e pode ser apagado a qualquer momento.${contagemConfigurada() ? ' Só contamos, de forma anônima, quais telas são abertas, sem cookies e sem identificar você.' : ''} Com conta, a ofensiva e os ajustes ficam no servidor; a lista de confissão e as anotações vão cifradas com a senha do cofre, e ninguém além de você consegue lê-las. Você pode apagar a conta e tudo a qualquer hora.</p>
       <button class="btn ghost" id="apagar" style="margin-top:6px">Apagar todos os meus dados</button>
     </div>
     <div ${rc('setting')}>
@@ -1594,6 +1605,12 @@ function telaMais() {
 
   renderConta();
 
+  $view.querySelectorAll('[data-contagem]').forEach((b) => b.addEventListener('click', () => {
+    definirContagem(b.dataset.contagem === '1');
+    $view.querySelectorAll('[data-contagem]').forEach((x) => x.setAttribute('aria-pressed', x === b));
+    toast(b.dataset.contagem === '1' ? 'Contagem anônima ligada' : 'Suas visitas não serão contadas');
+  }));
+
   $view.querySelector('#apagar').addEventListener('click', () => {
     if (!confirm('Apagar a lista, as anotações, a data da última confissão e o progresso do terço deste aparelho? (Os dados da conta no servidor não são apagados; para isso use "Apagar minha conta".)')) return;
     ['marcados', 'nota', 'ultimaConfissao', 'tercoProgresso', 'tercosRezados', 'tercoHoje', 'tercoDiario', 'ofensivaRecorde', 'lembreHora', 'lembreConf', 'estados'].forEach(store.delQuieto);
@@ -1633,12 +1650,15 @@ function rota() {
   else telaInicio();
 
   $tabbar.querySelectorAll('a').forEach((x) => x.classList.toggle('active', x.dataset.tab === tab));
+  const nomeTela = location.hash.replace(/^#\/?/, '').replace(/^santos\/\d{4}-\d{2}-\d{2}$/, 'santos/dia');
+  contarTela(nomeTela, document.title);
   moverIndicador();
 }
 
 window.addEventListener('hashchange', rota);
 window.addEventListener('resize', moverIndicador);
 document.fonts && document.fonts.ready.then(moverIndicador);
+iniciarContagem('lumen');
 aplicarTema(temaAtual());
 rota();
 agendarAvisos();
