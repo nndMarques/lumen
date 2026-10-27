@@ -1,5 +1,6 @@
 import { EXAMES, ESTADOS, PASSOS, CONTRICAO } from './data/exames.js';
 import { contarTela, contarEvento, contagemConfigurada, contagemLigada, definirContagem, iniciarContagem } from './contagem.js';
+import { PERGUNTAS, TEMAS, ABERTURA, PASSOS_CELA, DESPEDIDA } from './data/cela.js';
 import { ORACOES, MISTERIOS, POR_DIA, INTENCOES_INICIAIS, LINGUAS, PARTES, EXPLICACOES } from './data/terco.js';
 import { rosarioSVG, ordem, oracoesDa, ORD } from './rosario.js';
 import { dia, data, hojeNum, iso, deIso, GRAUS, CORES, leiturasDo } from './liturgia.js';
@@ -101,6 +102,7 @@ function telaInicio() {
   const L = dia(hojeNum());
   const santo = L.destaque;
   const ofen = ofensiva(diario());
+  const cela = celaSequencia(celaFeitas());
   const lh = leiturasDo(hojeNum());
   const ev = lh && lh.ev;
 
@@ -127,6 +129,11 @@ function telaInicio() {
     <ul ${rc('rows')} style="margin-top:18px">
       <li><a class="row" href="#/exame"><span class="body"><span class="title">Fazer o exame de consciência</span><span class="sub">Quatro exames, por estado de vida</span></span>${ICON_ARROW}</a></li>
       ${n ? `<li><a class="row" href="#/lista"><span class="body"><span class="title">Minha lista</span><span class="sub">${n} ${n === 1 ? 'item marcado' : 'itens marcados'}, só no seu aparelho</span></span>${ICON_ARROW}</a></li>` : ''}
+    </ul>
+    <hr ${rc('rule')}>
+    <p ${r()}><span class="eyebrow">A Cela</span></p>
+    <ul ${rc('rows')} style="margin-top:10px">
+      <li><a class="row" href="#/cela"><span class="body"><span class="title">${cela.feitoHoje ? 'Exame da noite feito' : 'Exame da noite'}</span><span class="sub">${cela.feitoHoje ? 'Boa noite. Até amanhã.' : 'Uma pergunta por noite, em cinco minutos'}${cela.seq > 1 ? ` · ${cela.seq} noites seguidas` : ''}</span></span>${ICON_ARROW}</a></li>
     </ul>
     <hr ${rc('rule')}>
     <p ${r()}><span class="eyebrow">Terço de hoje</span></p>
@@ -1501,7 +1508,7 @@ function telaMais() {
     </div>` : ''}
     <div ${rc('setting')}>
       <span class="lbl">Privacidade</span>
-      <p class="muted">Sem conta, o Lumen não tem servidor${contagemConfigurada() ? '' : ' nem rastreamento'}: tudo fica só neste aparelho e pode ser apagado a qualquer momento.${contagemConfigurada() ? ' Só contamos, de forma anônima, quais telas são abertas, sem cookies e sem identificar você.' : ''} Com conta, a ofensiva e os ajustes ficam no servidor; a lista de confissão e as anotações vão cifradas com a senha do cofre, e ninguém além de você consegue lê-las. Você pode apagar a conta e tudo a qualquer hora.</p>
+      <p class="muted">Sem conta, o Lumen não tem servidor${contagemConfigurada() ? '' : ' nem rastreamento'}: tudo fica só neste aparelho e pode ser apagado a qualquer momento.${contagemConfigurada() ? ' Só contamos, de forma anônima, quais telas são abertas, sem cookies e sem identificar você.' : ''} Com conta, a ofensiva e os ajustes ficam no servidor (as respostas da Cela ficam só neste aparelho); a lista de confissão e as anotações vão cifradas com a senha do cofre, e ninguém além de você consegue lê-las. Você pode apagar a conta e tudo a qualquer hora.</p>
       <button class="btn ghost" id="apagar" style="margin-top:6px">Apagar todos os meus dados</button>
     </div>
     <div ${rc('setting')}>
@@ -1510,7 +1517,7 @@ function telaMais() {
     </div>
     <div ${rc('setting')}>
       <span class="lbl">Em breve</span>
-      <p class="muted">O jogo diário do santo e a Cela, uma pergunta de exame por noite.</p>
+      <p class="muted">O jogo diário do santo.</p>
     </div>
     <p ${rc('muted small')} style="margin-top:24px">As referências das leituras seguem o Lecionário da Missa, a partir das tabelas do Pe. Felix Just, S.J., em <a href="https://catholic-resources.org/Lectionary/" target="_blank" rel="noopener">catholic-resources.org</a>.</p>
     <p ${rc('muted small')}>O calendário segue o Calendário Romano Geral e o próprio do Brasil, com as solenidades transferidas para o domingo como é costume aqui.</p>
@@ -1613,9 +1620,122 @@ function telaMais() {
 
   $view.querySelector('#apagar').addEventListener('click', () => {
     if (!confirm('Apagar a lista, as anotações, a data da última confissão e o progresso do terço deste aparelho? (Os dados da conta no servidor não são apagados; para isso use "Apagar minha conta".)')) return;
-    ['marcados', 'nota', 'ultimaConfissao', 'tercoProgresso', 'tercosRezados', 'tercoHoje', 'tercoDiario', 'ofensivaRecorde', 'lembreHora', 'lembreConf', 'estados'].forEach(store.delQuieto);
+    ['marcados', 'nota', 'ultimaConfissao', 'tercoProgresso', 'tercosRezados', 'tercoHoje', 'tercoDiario', 'ofensivaRecorde', 'lembreHora', 'lembreConf', 'estados', 'celaDiario', 'celaNotas'].forEach(store.delQuieto);
     toast('Dados apagados');
     telaMais();
+  });
+}
+
+// ---------- A Cela: uma pergunta de exame por noite ----------
+// Tudo fica só neste aparelho (as respostas são pessoais e não vão para a conta).
+const celaFeitas = () => store.get('celaDiario', {});
+const celaNotas = () => store.get('celaNotas', {});
+const mdc = (a, b) => (b ? mdc(b, a % b) : a);
+
+// A pergunta muda a cada dia e percorre todas antes de repetir; o passo evita seguir o tema na ordem do arquivo.
+function perguntaDoDia(chave) {
+  const N = PERGUNTAS.length;
+  const passo = [7, 11, 13, 17, 19].find((p) => mdc(p, N) === 1) || 1;
+  return PERGUNTAS[(((diaDaChave(chave) * passo) % N) + N) % N];
+}
+
+function celaSequencia(feitas) {
+  const hoje = new Date();
+  const dia = new Date(hoje);
+  const feitoHoje = !!feitas[chaveDia(hoje)];
+  if (!feitoHoje) dia.setDate(dia.getDate() - 1);
+  let seq = 0;
+  while (feitas[chaveDia(dia)]) { seq++; dia.setDate(dia.getDate() - 1); }
+  return { seq, feitoHoje };
+}
+
+function telaCela() {
+  delayIdx = 0;
+  const hoje = new Date();
+  const chave = chaveDia(hoje);
+  const feitas = celaFeitas();
+  const notas = celaNotas();
+  const P = perguntaDoDia(chave);
+  const { seq, feitoHoje } = celaSequencia(feitas);
+  const total = Object.keys(feitas).length;
+  const semana = [];
+  for (let k = 6; k >= 0; k--) {
+    const d = new Date(); d.setDate(d.getDate() - k);
+    semana.push({ w: d.getDay(), feito: !!feitas[chaveDia(d)], hoje: k === 0 });
+  }
+  const anteriores = Object.keys({ ...feitas, ...notas })
+    .filter((k) => k !== chave && (notas[k] || feitas[k]))
+    .sort((a, b) => diaDaChave(b) - diaDaChave(a)).slice(0, 14);
+  const rotulo = (k) => { const [y, m, d] = k.split('-').map(Number); return `${d} de ${MESES[m - 1]}`; };
+
+  render(`
+    <p ${r()}><a class="back" href="#/">${ICON_BACK} Início</a></p>
+    <p ${r()}><span class="eyebrow">A Cela <span class="dot">·</span> exame da noite</span></p>
+    <p ${rc('lit-line')}>${DIAS[hoje.getDay()]}, ${hoje.getDate()} de ${MESES[hoje.getMonth()]}</p>
+    <p ${rc('muted')} style="margin-top:14px">${ABERTURA.join(' ')}</p>
+    <hr ${rc('rule')}>
+    <p ${r()}><span class="eyebrow">A pergunta de hoje <span class="dot">·</span> ${TEMAS[P.c]}</span></p>
+    <h2 ${rc('cela-q')}>${esc(P.t)}</h2>
+    <div ${rc('cela-resposta')}>
+      <label class="lbl" for="cela-nota">Sua resposta a Deus (opcional)</label>
+      <textarea class="note-area" id="cela-nota" placeholder="Escreva se ajudar. Fica só neste aparelho.">${esc(notas[chave] || '')}</textarea>
+    </div>
+    <div ${r()} id="cela-acao" style="margin-top:18px">
+      ${feitoHoje ? '' : '<button class="btn solid block" id="cela-feito">Entreguei o meu dia a Deus</button>'}
+    </div>
+    <div ${rc('cela-despedida')} id="cela-fim" ${feitoHoje ? '' : 'hidden'}>
+      <p class="cela-frase">“${DESPEDIDA.texto}”<small>${DESPEDIDA.ref}</small></p>
+      <p class="muted">${DESPEDIDA.boa}</p>
+      <button class="btn ghost" id="cela-desfazer" style="margin-top:10px">Desfazer</button>
+    </div>
+    <hr ${rc('rule')}>
+    <p ${r()}><span class="eyebrow">Suas noites</span></p>
+    <div ${rc('counter')} style="margin-top:12px"><span class="big" id="cela-seq">${seq}</span><span class="lbl">${seq === 1 ? 'noite seguida' : 'noites seguidas'}${total > seq ? ` · ${total} no total` : ''}</span></div>
+    <ol ${rc('semana')} aria-label="Últimas sete noites">
+      ${semana.map((s) => `<li class="${s.feito ? 'feito' : ''}${s.hoje ? ' hoje' : ''}"><i></i><span>${'DSTQQSS'[s.w]}</span></li>`).join('')}
+    </ol>
+    <details ${rc('cela-como')}>
+      <summary>Como fazer a Cela</summary>
+      <ol>${PASSOS_CELA.map((p) => `<li><b>${p.t}.</b> ${p.d}</li>`).join('')}</ol>
+      <p class="muted small">Cinco minutos bastam. Não é um julgamento: é olhar o dia com Deus, que conhece você e é misericordioso. Se lembrar de algo grave, leve-o à confissão.</p>
+    </details>
+    ${anteriores.length ? `
+    <details ${rc('cela-historico')}>
+      <summary>Noites anteriores</summary>
+      <ul>${anteriores.map((k) => `<li><span class="cela-d">${rotulo(k)}</span><span class="cela-p">${esc(perguntaDoDia(k).t)}</span>${notas[k] ? `<span class="cela-n">${esc(notas[k])}</span>` : ''}</li>`).join('')}</ul>
+    </details>` : ''}
+  `);
+
+  const $nota = $view.querySelector('#cela-nota');
+  $nota.addEventListener('input', () => {
+    const n = celaNotas();
+    if ($nota.value.trim()) n[chave] = $nota.value; else delete n[chave];
+    store.setQuieto('celaNotas', n);
+  });
+  const mostrarFim = (feito) => {
+    $view.querySelector('#cela-fim').hidden = !feito;
+    $view.querySelector('#cela-acao').innerHTML = feito ? '' : '<button class="btn solid block" id="cela-feito">Entreguei o meu dia a Deus</button>';
+    const f = celaFeitas();
+    const s = celaSequencia(f).seq;
+    $view.querySelector('#cela-seq').textContent = s;
+    $view.querySelector('#cela-seq').nextElementSibling.textContent = `${s === 1 ? 'noite seguida' : 'noites seguidas'}${Object.keys(f).length > s ? ` · ${Object.keys(f).length} no total` : ''}`;
+    $view.querySelector('.semana li.hoje').classList.toggle('feito', feito);
+    ligarFeito();
+  };
+  const ligarFeito = () => {
+    const b = $view.querySelector('#cela-feito');
+    if (!b) return;
+    b.addEventListener('click', () => {
+      const f = celaFeitas(); f[chave] = 1; store.setQuieto('celaDiario', f);
+      contarEvento('cela');
+      vibrar(20);
+      mostrarFim(true);
+    });
+  };
+  ligarFeito();
+  $view.querySelector('#cela-desfazer').addEventListener('click', () => {
+    const f = celaFeitas(); delete f[chave]; store.setQuieto('celaDiario', f);
+    mostrarFim(false);
   });
 }
 
@@ -1646,6 +1766,7 @@ function rota() {
   else if (a === 'terco' && b === 'aprender') { tab = 'terco'; telaAprender(); }
   else if (a === 'terco') { tab = 'terco'; telaTerco(); }
   else if (a === 'santos') { tab = 'santos'; telaSantos(b); }
+  else if (a === 'cela') { tab = 'inicio'; telaCela(); }
   else if (a === 'mais') { tab = 'mais'; telaMais(); }
   else telaInicio();
 
