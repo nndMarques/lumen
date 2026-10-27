@@ -1,5 +1,5 @@
 // Guarda o app para funcionar sem internet (ex.: dentro da igreja).
-const CACHE = 'lumen-v25';
+const CACHE = 'lumen-v26';
 const ARQUIVOS = [
   './', 'index.html', 'css/style.css', 'js/app.js', 'js/data/exames.js', 'js/data/terco.js', 'js/data/cela.js', 'js/data/santos.js', 'js/data/leituras.js', 'js/liturgia.js', 'js/conta.js', 'js/config.js', 'js/rosario.js', 'js/contagem.js',
   'manifest.webmanifest', 'icons/icon.svg', 'icons/icon-192.png', 'icons/icon-512.png', 'icons/icon-180.png',

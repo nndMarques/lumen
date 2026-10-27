@@ -1200,6 +1200,10 @@ function avisosHTML(dias) {
   if (h && agora.getHours() * 60 + agora.getMinutes() >= minutosDe(h) && !rezadosHoje().length) {
     out.push(`<a class="aviso" href="#/terco"><span><b>Hora do terço</b>Você marcou o lembrete para ${h} e ainda não rezou hoje.</span>${ICON_ARROW}</a>`);
   }
+  const hc = store.get('celaHora', null);
+  if (hc && agora.getHours() * 60 + agora.getMinutes() >= minutosDe(hc) && !celaFeitas()[hojeKey()]) {
+    out.push(`<a class="aviso" href="#/cela"><span><b>A Cela</b>Hora do exame da noite. Uma pergunta, cinco minutos.</span>${ICON_ARROW}</a>`);
+  }
   const iv = store.get('lembreConf', 0);
   if (iv && dias !== null && dias >= iv) {
     out.push(`<a class="aviso" href="#/exame"><span><b>Confissão</b>Faz ${dias} dias desde a sua última confissão. Que tal fazer o exame de consciência?</span>${ICON_ARROW}</a>`);
@@ -1208,21 +1212,27 @@ function avisosHTML(dias) {
 }
 
 // Notificação do navegador, enquanto o app estiver aberto ou em segundo plano.
-let avisoTimer;
+let avisoTimer = [];
 function agendarAvisos() {
-  clearTimeout(avisoTimer);
-  const h = store.get('lembreHora', null);
-  if (!h || typeof Notification === 'undefined' || Notification.permission !== 'granted' || !navigator.serviceWorker) return;
-  const alvo = new Date();
-  alvo.setHours(...h.split(':').map(Number), 0, 0);
-  const espera = alvo - Date.now();
-  if (espera <= 0 || espera > 20 * 3600000) return;
-  avisoTimer = setTimeout(() => {
-    if (rezadosHoje().length) return;
-    navigator.serviceWorker.ready.then((reg) => reg.showNotification('Hora do terço', {
-      body: 'Um momento de oração com o Lumen.', icon: 'icons/icon-192.png', tag: 'lumen-terco',
-    })).catch(() => {});
-  }, espera);
+  avisoTimer.forEach(clearTimeout);
+  avisoTimer = [];
+  if (typeof Notification === 'undefined' || Notification.permission !== 'granted' || !navigator.serviceWorker) return;
+  const avisos = [
+    { chave: 'lembreHora', feito: () => rezadosHoje().length, titulo: 'Hora do terço', corpo: 'Um momento de oração com o Lumen.', tag: 'lumen-terco' },
+    { chave: 'celaHora', feito: () => celaFeitas()[hojeKey()], titulo: 'A Cela', corpo: 'Hora do exame da noite: uma pergunta, cinco minutos.', tag: 'lumen-cela' },
+  ];
+  avisos.forEach((a) => {
+    const h = store.get(a.chave, null);
+    if (!h) return;
+    const alvo = new Date();
+    alvo.setHours(...h.split(':').map(Number), 0, 0);
+    const espera = alvo - Date.now();
+    if (espera <= 0 || espera > 20 * 3600000) return;
+    avisoTimer.push(setTimeout(() => {
+      if (a.feito()) return;
+      navigator.serviceWorker.ready.then((reg) => reg.showNotification(a.titulo, { body: a.corpo, icon: 'icons/icon-192.png', tag: a.tag })).catch(() => {});
+    }, espera));
+  });
 }
 
 // ---------- Cards para compartilhar ----------
@@ -1486,6 +1496,17 @@ function telaMais() {
       <p class="muted small" style="margin-top:10px">O aviso do calendário toca mesmo com o app fechado. Já o do navegador só funciona com o Lumen aberto ou em segundo plano. Na aba Hoje, o app também avisa depois da hora marcada.</p>
     </div>
     <div ${rc('setting')}>
+      <span class="lbl">Lembrete da Cela</span>
+      <p class="muted small" id="cela-estado"></p>
+      <div class="lembre-linha">
+        <input type="time" id="cela-hora" class="campo" aria-label="Hora do lembrete da Cela">
+        <button class="btn solid" id="cela-salvar">Salvar</button>
+        <button class="btn ghost" id="cela-off" hidden>Desativar</button>
+      </div>
+      <button class="btn block" id="cela-cal" hidden style="margin-top:10px">Adicionar ao calendário do celular</button>
+      <p class="muted small" style="margin-top:10px">Para o exame da noite. Funciona como o lembrete do terço: o calendário toca com o app fechado, e o aviso do navegador usa o botão acima.</p>
+    </div>
+    <div ${rc('setting')}>
       <span class="lbl">Lembrete de confissão</span>
       <p class="muted small">Avisar quando passar este tempo desde a última confissão.</p>
       <div class="choices" style="margin-top:10px">
@@ -1560,7 +1581,7 @@ function telaMais() {
     $view.querySelector('#lembre-estado').textContent = h ? `Lembrete diário às ${h}.` : 'Nenhum lembrete configurado.';
     $view.querySelector('#lembre-off').hidden = !h;
     $view.querySelector('#lembre-cal').hidden = !h;
-    $notif.hidden = !(h && typeof Notification !== 'undefined' && Notification.permission === 'default');
+    $notif.hidden = !((h || store.get('celaHora', null)) && typeof Notification !== 'undefined' && Notification.permission === 'default');
   };
   mostrarLembrete();
   $view.querySelector('#lembre-salvar').addEventListener('click', () => {
@@ -1571,7 +1592,7 @@ function telaMais() {
     toast(`Lembrete salvo para ${$hora.value}`);
   });
   $view.querySelector('#lembre-off').addEventListener('click', () => {
-    store.del('lembreHora'); clearTimeout(avisoTimer); atualizarHoraPush(null);
+    store.del('lembreHora'); agendarAvisos(); atualizarHoraPush(null);
     mostrarLembrete(); toast('Lembrete desativado');
   });
   $view.querySelector('#lembre-cal').addEventListener('click', () => {
@@ -1586,6 +1607,36 @@ function telaMais() {
     const r = await Notification.requestPermission();
     mostrarLembrete(); agendarAvisos();
     toast(r === 'granted' ? 'Avisos do navegador ativados' : 'Sem permissão para avisar');
+  });
+
+  // lembrete da Cela
+  const $horaC = $view.querySelector('#cela-hora');
+  const mostrarCela = () => {
+    const h = store.get('celaHora', null);
+    $horaC.value = h || '21:30';
+    $view.querySelector('#cela-estado').textContent = h ? `Lembrete diário às ${h}.` : 'Nenhum lembrete configurado.';
+    $view.querySelector('#cela-off').hidden = !h;
+    $view.querySelector('#cela-cal').hidden = !h;
+    mostrarLembrete();
+  };
+  mostrarCela();
+  $view.querySelector('#cela-salvar').addEventListener('click', () => {
+    if (!$horaC.value) return toast('Escolha uma hora');
+    store.setQuieto('celaHora', $horaC.value);
+    mostrarCela(); agendarAvisos();
+    toast(`Lembrete da Cela salvo para ${$horaC.value}`);
+  });
+  $view.querySelector('#cela-off').addEventListener('click', () => {
+    store.delQuieto('celaHora'); agendarAvisos();
+    mostrarCela(); toast('Lembrete da Cela desativado');
+  });
+  $view.querySelector('#cela-cal').addEventListener('click', () => {
+    const h = store.get('celaHora', null);
+    if (!h) return;
+    const [hh, mm] = h.split(':').map(Number);
+    const ini = new Date(); ini.setHours(hh, mm, 0, 0);
+    baixarEvento({ nome: 'lumen-cela', titulo: 'A Cela: exame da noite', descricao: 'Uma pergunta, cinco minutos. Abra o Lumen e faça a Cela de hoje.', inicio: ini, repete: true });
+    toast('Abra o arquivo para adicionar ao calendário');
   });
 
   // lembrete de confissão
@@ -1620,7 +1671,7 @@ function telaMais() {
 
   $view.querySelector('#apagar').addEventListener('click', () => {
     if (!confirm('Apagar a lista, as anotações, a data da última confissão e o progresso do terço deste aparelho? (Os dados da conta no servidor não são apagados; para isso use "Apagar minha conta".)')) return;
-    ['marcados', 'nota', 'ultimaConfissao', 'tercoProgresso', 'tercosRezados', 'tercoHoje', 'tercoDiario', 'ofensivaRecorde', 'lembreHora', 'lembreConf', 'estados', 'celaDiario', 'celaNotas'].forEach(store.delQuieto);
+    ['marcados', 'nota', 'ultimaConfissao', 'tercoProgresso', 'tercosRezados', 'tercoHoje', 'tercoDiario', 'ofensivaRecorde', 'lembreHora', 'lembreConf', 'estados', 'celaDiario', 'celaNotas', 'celaHora'].forEach(store.delQuieto);
     toast('Dados apagados');
     telaMais();
   });
@@ -1694,6 +1745,7 @@ function telaCela() {
     <ol ${rc('semana')} aria-label="Últimas sete noites">
       ${semana.map((s) => `<li class="${s.feito ? 'feito' : ''}${s.hoje ? ' hoje' : ''}"><i></i><span>${'DSTQQSS'[s.w]}</span></li>`).join('')}
     </ol>
+    <p ${rc('muted small')} style="margin-top:14px">${store.get('celaHora', null) ? `Lembrete às ${store.get('celaHora', null)}.` : ''} <a href="#/mais">${store.get('celaHora', null) ? 'Mudar' : 'Ativar o lembrete da noite'}</a></p>
     <details ${rc('cela-como')}>
       <summary>Como fazer a Cela</summary>
       <ol>${PASSOS_CELA.map((p) => `<li><b>${p.t}.</b> ${p.d}</li>`).join('')}</ol>
